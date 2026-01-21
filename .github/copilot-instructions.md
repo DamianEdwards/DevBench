@@ -35,6 +35,12 @@ DevBench is a developer PC benchmarking tool focused on measuring build performa
 
 ## Testing Changes Locally
 
+### Verify DevBench.cs compiles without warnings:
+```powershell
+dotnet build ./src/DevBench.cs
+# Must produce NO warnings
+```
+
 ### Test the harness:
 ```powershell
 cd D:\src\github\damianedwards\DevBench
@@ -44,6 +50,11 @@ dotnet run src/DevBench.cs
 ### Test a specific benchmark:
 ```powershell
 dotnet run src/DevBench.cs -- --benchmark dotnet-hello-world
+```
+
+### Test restore phase only (for debugging):
+```powershell
+dotnet run src/DevBench.cs -- --benchmark orchardcore --restore-only --verbose
 ```
 
 ### Build native AOT locally:

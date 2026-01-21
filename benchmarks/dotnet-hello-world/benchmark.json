@@ -16,11 +16,11 @@
   },
   "build": {
     "full": {
-      "command": "dotnet build src -c Release",
+      "command": "dotnet build src -c Release --no-restore",
       "timeout": 60
     },
     "incremental": {
-      "command": "dotnet build src -c Release",
+      "command": "dotnet build src -c Release --no-restore",
       "touchFile": "src/Program.cs",
       "timeout": 30
     }

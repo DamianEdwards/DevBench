@@ -13,10 +13,14 @@ using Spectre.Console;
 
 var verbose = args.Contains("--verbose") || args.Contains("-v");
 var systemInfoOnly = args.Contains("--system-info-only");
+var restoreOnly = args.Contains("--restore-only");
 var specificBenchmark = GetArgValue(args, "--benchmark") ?? GetArgValue(args, "-b");
 
 // Collect system info first
-AnsiConsole.MarkupLine("[blue]Collecting system information...[/]");
+if (!restoreOnly)
+{
+    AnsiConsole.MarkupLine("[blue]Collecting system information...[/]");
+}
 var systemInfo = CollectSystemInfo();
 
 if (systemInfoOnly)
@@ -117,8 +121,21 @@ foreach (var benchmark in selectedBenchmarks)
         workDir = Path.Combine(workDir, benchmark.WorkingDirectory);
     }
     
-    var result = await RunBenchmark(benchmark, workDir, verbose);
-    results.Add(result);
+    if (restoreOnly)
+    {
+        await RunRestoreOnly(benchmark, workDir, verbose);
+    }
+    else
+    {
+        var result = await RunBenchmark(benchmark, workDir, verbose);
+        results.Add(result);
+    }
+}
+
+if (restoreOnly)
+{
+    AnsiConsole.MarkupLine("[green]Restore completed.[/]");
+    return 0;
 }
 
 // Generate results
@@ -254,6 +271,39 @@ static async Task<string?> CloneExternalRepo(BenchmarkManifest benchmark, string
         TimeSpan.FromMinutes(10), verbose);
     
     return result.Success ? targetDir : null;
+}
+
+static async Task RunRestoreOnly(BenchmarkManifest benchmark, string workDir, bool verbose)
+{
+    var envVars = benchmark.EnvironmentVariables ?? new Dictionary<string, string>();
+    
+    if (benchmark.Restore == null)
+    {
+        AnsiConsole.MarkupLine("[yellow]  No restore command defined[/]");
+        return;
+    }
+    
+    AnsiConsole.MarkupLine($"[blue]  Restoring {benchmark.Name}...[/]");
+    AnsiConsole.MarkupLine($"[grey]  Working directory: {workDir}[/]");
+    AnsiConsole.MarkupLine($"[grey]  Command: {benchmark.Restore.Command}[/]");
+    
+    var timeout = TimeSpan.FromSeconds(benchmark.Restore.Timeout ?? 300);
+    var sw = Stopwatch.StartNew();
+    var result = await RunCommandAsync(benchmark.Restore.Command, "", workDir, timeout, verbose, envVars);
+    sw.Stop();
+    
+    if (result.Success)
+    {
+        AnsiConsole.MarkupLine($"[green]  Restore completed in {sw.ElapsedMilliseconds}ms[/]");
+    }
+    else
+    {
+        AnsiConsole.MarkupLine($"[red]  Restore failed (exit code: {result.ExitCode})[/]");
+        if (!string.IsNullOrWhiteSpace(result.Error))
+        {
+            AnsiConsole.MarkupLine($"[red]{Markup.Escape(result.Error)}[/]");
+        }
+    }
 }
 
 static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, string workDir, bool verbose)

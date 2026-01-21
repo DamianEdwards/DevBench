@@ -10,7 +10,7 @@
   ],
   "restore": {
     "command": "dotnet restore",
-    "timeout": 300
+    "timeout": 600
   },
   "clearCache": {
     "command": "dotnet clean",

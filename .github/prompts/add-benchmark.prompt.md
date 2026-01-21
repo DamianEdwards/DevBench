@@ -43,11 +43,11 @@ Use this template:
   },
   "build": {
     "full": {
-      "command": "dotnet build -c Release",
+      "command": "dotnet build -c Release --no-restore",
       "timeout": 300
     },
     "incremental": {
-      "command": "dotnet build -c Release",
+      "command": "dotnet build -c Release --no-restore",
       "touchFile": "src/Program.cs",
       "timeout": 120
     }
@@ -56,6 +56,8 @@ Use this template:
   "measuredIterations": 5
 }
 ```
+
+**Important for .NET benchmarks:** Always use `--no-restore` in build commands. The restore phase runs separately and is not timed. This ensures build timings only measure compilation, not package downloads.
 
 ### For external-repo benchmarks:
 
