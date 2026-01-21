@@ -69,14 +69,14 @@ layout: layout.njk
                 onclick="window.location.href=this.dataset.href">
               <td class="px-4 py-3 text-sm text-gray-900">{{ result.submitter }}</td>
               <td class="px-4 py-3 text-sm text-gray-500">{{ result.timestamp | formatDate }}</td>
-              <td class="px-4 py-3 text-sm">
-                <span class="inline-flex items-center">
+              <td class="px-4 py-3 text-sm whitespace-nowrap">
+                <span class="inline-flex items-center gap-1">
                   {% if result.machine.os.platform == "Windows" %}🪟{% endif %}
                   {% if result.machine.os.platform == "macOS" %}🍎{% endif %}
                   {% if result.machine.os.platform == "Linux" %}🐧{% endif %}
                   {{ result.machine.os.platform }}
                   {% if result.machine.storage.isDevDrive or result.machine.platformSpecific.isDevDrive or result.machine.platformSpecific.IsDevDrive %}
-                    <span class="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">Dev Drive</span>
+                    <span class="text-xs bg-green-100 text-green-800 px-1 rounded">Dev Drive</span>
                   {% endif %}
                 </span>
               </td>
