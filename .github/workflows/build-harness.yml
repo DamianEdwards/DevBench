@@ -13,7 +13,48 @@ env:
   HARNESS_NAME: DevBench
 
 jobs:
-  build:
+  calculate-version:
+    runs-on: ubuntu-latest
+    outputs:
+      next_version: ${{ steps.version.outputs.next }}
+      dev_version: ${{ steps.version.outputs.dev }}
+      short_sha: ${{ steps.version.outputs.short_sha }}
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Calculate versions
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Get latest non-draft, non-prerelease release
+          latest=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+          
+          if [ -z "$latest" ]; then
+            next="0.0.1"
+          else
+            # Parse and increment patch
+            version=${latest#v}
+            IFS='.' read -r major minor patch <<< "$version"
+            next="$major.$minor.$((patch + 1))"
+          fi
+          
+          short_sha=$(git rev-parse --short HEAD)
+          dev_version="${next}-dev.${short_sha}"
+          
+          echo "next=$next" >> $GITHUB_OUTPUT
+          echo "dev=$dev_version" >> $GITHUB_OUTPUT
+          echo "short_sha=$short_sha" >> $GITHUB_OUTPUT
+          
+          echo "Latest release: ${latest:-none}"
+          echo "Next release version: $next"
+          echo "Dev version: $dev_version"
+
+  build-dev:
+    needs: calculate-version
     strategy:
       fail-fast: false
       matrix:
@@ -47,11 +88,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang zlib1g-dev
       
-      - name: Build Native AOT
+      - name: Build Native AOT (dev version)
         run: |
           dotnet publish src/DevBench.cs `
             --runtime ${{ matrix.rid }} `
-            --output ./artifacts/${{ matrix.rid }}
+            --output ./artifacts/${{ matrix.rid }} `
+            -p:Version=${{ needs.calculate-version.outputs.dev_version }} `
+            -p:InformationalVersion=${{ needs.calculate-version.outputs.dev_version }}+${{ github.sha }}
         shell: pwsh
       
       - name: Rename artifact
@@ -62,14 +105,73 @@ jobs:
           Move-Item $src $dst
         shell: pwsh
       
-      - name: Upload artifact
+      - name: Upload dev artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.HARNESS_NAME }}-${{ matrix.rid }}
+          name: dev-${{ env.HARNESS_NAME }}-${{ matrix.rid }}
           path: ./artifacts/${{ env.HARNESS_NAME }}-${{ matrix.rid }}*
 
+  build-release-candidate:
+    needs: calculate-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-11-arm
+            rid: win-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-24.04-arm
+            rid: linux-arm64
+          - os: macos-latest
+            rid: osx-x64
+          - os: macos-latest
+            rid: osx-arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Install Native AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang zlib1g-dev
+      
+      - name: Build Native AOT (release candidate)
+        run: |
+          dotnet publish src/DevBench.cs `
+            --runtime ${{ matrix.rid }} `
+            --output ./artifacts/${{ matrix.rid }} `
+            -p:Version=${{ needs.calculate-version.outputs.next_version }} `
+            -p:InformationalVersion=${{ needs.calculate-version.outputs.next_version }}+${{ github.sha }}
+        shell: pwsh
+      
+      - name: Rename artifact
+        run: |
+          $ext = if ("${{ matrix.rid }}".StartsWith("win")) { ".exe" } else { "" }
+          $src = "./artifacts/${{ matrix.rid }}/${{ env.HARNESS_NAME }}$ext"
+          $dst = "./artifacts/${{ env.HARNESS_NAME }}-${{ matrix.rid }}$ext"
+          Move-Item $src $dst
+        shell: pwsh
+      
+      - name: Upload release candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-${{ env.HARNESS_NAME }}-${{ matrix.rid }}
+          path: ./artifacts/${{ env.HARNESS_NAME }}-${{ matrix.rid }}*
+          retention-days: 90
+
   update-draft-release:
-    needs: build
+    needs: [calculate-version, build-dev]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -77,22 +179,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download all artifacts
+      - name: Download dev artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: dev-*
           path: ./artifacts
           merge-multiple: true
       
       - name: List artifacts
         run: ls -la ./artifacts/
-      
-      - name: Get short SHA
-        id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
-      - name: Get run number
-        id: run
-        run: echo "number=${{ github.run_number }}" >> $GITHUB_OUTPUT
       
       - name: Create/Update draft release
         uses: softprops/action-gh-release@v2
@@ -102,11 +197,14 @@ jobs:
           body: |
             ## Development Build
             
+            **Version:** `${{ needs.calculate-version.outputs.dev_version }}`
             **Commit:** ${{ github.sha }}
             **Build:** #${{ github.run_number }}
             **Date:** ${{ github.event.head_commit.timestamp }}
             
-            These are automated CI builds. For stable releases, see the latest non-draft release.
+            These are automated dev builds. For stable releases, see the [latest release](../../releases/latest).
+            
+            When promoted, this will become **v${{ needs.calculate-version.outputs.next_version }}**.
             
             ### Downloads
             
@@ -122,41 +220,3 @@ jobs:
           prerelease: false
           files: ./artifacts/*
           fail_on_unmatched_files: true
-      
-      - name: Store release candidate artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-candidate-${{ steps.sha.outputs.short }}
-          path: ./artifacts/*
-          retention-days: 90
-
-  version-info:
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Calculate next version
-        id: version
-        run: |
-          # Get latest tag
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          
-          # Parse version
-          version=${latest_tag#v}
-          IFS='.' read -r major minor patch <<< "$version"
-          
-          # Increment patch
-          patch=$((patch + 1))
-          
-          next_version="v$major.$minor.$patch"
-          echo "next=$next_version" >> $GITHUB_OUTPUT
-          echo "Next release version would be: $next_version"
-      
-      - name: Log version info
-        run: |
-          echo "CI Version: 0.0.0-ci.${{ github.run_number }}+${{ github.sha }}"
-          echo "Release Candidate Version: ${{ steps.version.outputs.next }}"

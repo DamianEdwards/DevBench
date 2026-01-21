@@ -15,6 +15,7 @@ $repoName = "DevBench"
 $harnessName = "DevBench"
 $cacheDir = Join-Path $PSScriptRoot ".devbench"
 $srcFile = Join-Path $PSScriptRoot "src" "DevBench.cs"
+$versionFile = Join-Path $cacheDir "version.txt"
 
 # Determine platform
 $os = if ($IsWindows -or $env:OS -eq "Windows_NT") { "win" }
@@ -39,6 +40,31 @@ function Get-LatestRelease {
     }
 }
 
+function Get-LocalVersion {
+    if (Test-Path $versionFile) {
+        return (Get-Content $versionFile -Raw).Trim()
+    }
+    return $null
+}
+
+function Compare-Versions {
+    param($Local, $Remote)
+    
+    # Strip 'v' prefix if present
+    $Local = $Local -replace '^v', ''
+    $Remote = $Remote -replace '^v', ''
+    
+    try {
+        $localVer = [Version]$Local
+        $remoteVer = [Version]$Remote
+        return $remoteVer -gt $localVer
+    }
+    catch {
+        # If version parsing fails, assume remote is newer
+        return $true
+    }
+}
+
 function Download-Harness {
     param($Release)
     
@@ -52,8 +78,11 @@ function Download-Harness {
     
     New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
     
-    Write-Host "Downloading $assetName..." -ForegroundColor Cyan
+    Write-Host "Downloading $assetName (v$($Release.tag_name -replace '^v', ''))..." -ForegroundColor Cyan
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $harnessPath
+    
+    # Save version
+    $Release.tag_name -replace '^v', '' | Set-Content $versionFile
     
     if ($os -ne "win") {
         chmod +x $harnessPath
@@ -135,8 +164,10 @@ $assemblyPath = $null
 
 if (-not $LocalBuild) {
     # Try to use pre-built native binary
-    if ($Force -or -not (Test-Path $harnessPath)) {
-        $release = Get-LatestRelease
+    $release = Get-LatestRelease
+    
+    if ($Force) {
+        # Force download
         if ($release) {
             $downloaded = Download-Harness -Release $release
             if ($downloaded) {
@@ -144,8 +175,36 @@ if (-not $LocalBuild) {
             }
         }
     }
+    elseif (Test-Path $harnessPath) {
+        # Check if we need to update
+        $localVersion = Get-LocalVersion
+        if ($release -and $localVersion) {
+            $remoteVersion = $release.tag_name -replace '^v', ''
+            if (Compare-Versions -Local $localVersion -Remote $remoteVersion) {
+                Write-Host "New version available: $remoteVersion (current: $localVersion)" -ForegroundColor Yellow
+                $downloaded = Download-Harness -Release $release
+                if ($downloaded) {
+                    $useNativeHarness = $true
+                }
+            }
+            else {
+                Write-Host "Using DevBench v$localVersion (up to date)" -ForegroundColor DarkGray
+                $useNativeHarness = $true
+            }
+        }
+        else {
+            # No version info, just use existing binary
+            $useNativeHarness = $true
+        }
+    }
     else {
-        $useNativeHarness = $true
+        # No local binary, try to download
+        if ($release) {
+            $downloaded = Download-Harness -Release $release
+            if ($downloaded) {
+                $useNativeHarness = $true
+            }
+        }
     }
 }
 

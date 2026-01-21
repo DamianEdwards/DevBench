@@ -10,6 +10,7 @@ HARNESS_NAME="DevBench"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="$SCRIPT_DIR/.devbench"
 SRC_FILE="$SCRIPT_DIR/src/DevBench.cs"
+VERSION_FILE="$CACHE_DIR/version.txt"
 
 # Parse arguments
 FORCE=false
@@ -74,6 +75,25 @@ get_latest_release() {
     curl -s "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases/latest" 2>/dev/null
 }
 
+get_local_version() {
+    if [ -f "$VERSION_FILE" ]; then
+        cat "$VERSION_FILE" | tr -d '[:space:]'
+    fi
+}
+
+# Compare versions: returns 0 if remote > local (needs update)
+version_gt() {
+    local remote="$1"
+    local local_ver="$2"
+    
+    # Strip 'v' prefix
+    remote="${remote#v}"
+    local_ver="${local_ver#v}"
+    
+    # Use sort -V for version comparison
+    [ "$(printf '%s\n' "$local_ver" "$remote" | sort -V | tail -1)" = "$remote" ] && [ "$remote" != "$local_ver" ]
+}
+
 download_harness() {
     local release="$1"
     local asset_name="$HARNESS_NAME-$RID$EXE_EXT"
@@ -86,9 +106,15 @@ download_harness() {
     
     mkdir -p "$CACHE_DIR"
     
-    echo "Downloading $asset_name..."
+    # Extract version from release
+    local version=$(echo "$release" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
+    
+    echo "Downloading $asset_name (v$version)..."
     curl -L -o "$HARNESS_PATH" "$download_url"
     chmod +x "$HARNESS_PATH"
+    
+    # Save version
+    echo "$version" > "$VERSION_FILE"
     
     return 0
 }
@@ -152,16 +178,40 @@ USE_NATIVE_HARNESS=false
 ASSEMBLY_PATH=""
 
 if [ "$LOCAL_BUILD" != true ]; then
-    # Try to use pre-built native binary
-    if [ "$FORCE" = true ] || [ ! -f "$HARNESS_PATH" ]; then
-        release=$(get_latest_release)
+    release=$(get_latest_release)
+    
+    if [ "$FORCE" = true ]; then
+        # Force download
         if [ -n "$release" ] && echo "$release" | grep -q '"tag_name"'; then
             if download_harness "$release"; then
                 USE_NATIVE_HARNESS=true
             fi
         fi
+    elif [ -f "$HARNESS_PATH" ]; then
+        # Check if we need to update
+        local_version=$(get_local_version)
+        if [ -n "$release" ] && echo "$release" | grep -q '"tag_name"' && [ -n "$local_version" ]; then
+            remote_version=$(echo "$release" | grep -o '"tag_name": "[^"]*"' | cut -d'"' -f4 | sed 's/^v//')
+            if version_gt "$remote_version" "$local_version"; then
+                echo "New version available: $remote_version (current: $local_version)"
+                if download_harness "$release"; then
+                    USE_NATIVE_HARNESS=true
+                fi
+            else
+                echo "Using DevBench v$local_version (up to date)"
+                USE_NATIVE_HARNESS=true
+            fi
+        else
+            # No version info, just use existing binary
+            USE_NATIVE_HARNESS=true
+        fi
     else
-        USE_NATIVE_HARNESS=true
+        # No local binary, try to download
+        if [ -n "$release" ] && echo "$release" | grep -q '"tag_name"'; then
+            if download_harness "$release"; then
+                USE_NATIVE_HARNESS=true
+            fi
+        fi
     fi
 fi
 

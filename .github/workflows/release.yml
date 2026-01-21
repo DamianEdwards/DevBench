@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3). Leave empty to auto-increment patch.'
+        required: false
+        type: string
+      release_notes:
+        description: 'Release notes (markdown). Leave empty for default notes.'
+        required: false
+        type: string
+
+env:
+  HARNESS_NAME: DevBench
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Calculate version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            # Use provided version (strip 'v' prefix if present)
+            version="${{ inputs.version }}"
+            version="${version#v}"
+            echo "version=$version" >> $GITHUB_OUTPUT
+            echo "Using provided version: $version"
+          else
+            # Auto-increment from latest release
+            latest=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+            
+            if [ -z "$latest" ]; then
+              version="0.0.1"
+            else
+              # Parse and increment patch
+              latest_version=${latest#v}
+              IFS='.' read -r major minor patch <<< "$latest_version"
+              version="$major.$minor.$((patch + 1))"
+            fi
+            
+            echo "version=$version" >> $GITHUB_OUTPUT
+            echo "Latest release: ${latest:-none}"
+            echo "Auto-calculated version: $version"
+          fi
+      
+      - name: Find latest successful build
+        id: find-build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Find the latest successful build-harness workflow run
+          run_id=$(gh run list --workflow=build-harness.yml --status=success --limit=1 --json databaseId -q '.[0].databaseId')
+          
+          if [ -z "$run_id" ]; then
+            echo "Error: No successful build found"
+            exit 1
+          fi
+          
+          echo "run_id=$run_id" >> $GITHUB_OUTPUT
+          echo "Found successful build: $run_id"
+      
+      - name: Download release candidate artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ./artifacts
+          
+          # Download all rc-* artifacts from the build
+          gh run download ${{ steps.find-build.outputs.run_id }} --pattern "rc-*" --dir ./download
+          
+          # Flatten directory structure
+          find ./download -type f -exec mv {} ./artifacts/ \;
+          
+          echo "Downloaded artifacts:"
+          ls -la ./artifacts/
+      
+      - name: Verify artifacts
+        run: |
+          expected_files=(
+            "DevBench-win-x64.exe"
+            "DevBench-win-arm64.exe"
+            "DevBench-linux-x64"
+            "DevBench-linux-arm64"
+            "DevBench-osx-x64"
+            "DevBench-osx-arm64"
+          )
+          
+          for file in "${expected_files[@]}"; do
+            if [ ! -f "./artifacts/$file" ]; then
+              echo "Error: Missing expected artifact: $file"
+              exit 1
+            fi
+          done
+          
+          echo "All expected artifacts present"
+      
+      - name: Prepare release notes
+        id: notes
+        run: |
+          version="v${{ steps.version.outputs.version }}"
+          
+          if [ -n "${{ inputs.release_notes }}" ]; then
+            notes="${{ inputs.release_notes }}"
+          else
+            notes="Release $version"
+          fi
+          
+          # Write notes to file for multi-line support
+          cat > release-notes.md << 'NOTES_EOF'
+          ## DevBench ${{ steps.version.outputs.version }}
+          
+          ${{ inputs.release_notes || 'No release notes provided.' }}
+          
+          ### Installation
+          
+          #### Option 1: Run directly (recommended)
+          
+          ```bash
+          git clone https://github.com/damianedwards/DevBench.git
+          cd DevBench
+          ./run-benchmarks.sh  # or .\run-benchmarks.ps1 on Windows
+          ```
+          
+          #### Option 2: Download binary
+          
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Binaries
+          
+          | Platform | Binary |
+          |----------|--------|
+          | Windows x64 | `DevBench-win-x64.exe` |
+          | Windows ARM64 | `DevBench-win-arm64.exe` |
+          | Linux x64 | `DevBench-linux-x64` |
+          | Linux ARM64 | `DevBench-linux-arm64` |
+          | macOS x64 | `DevBench-osx-x64` |
+          | macOS ARM64 | `DevBench-osx-arm64` |
+          NOTES_EOF
+      
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="v${{ steps.version.outputs.version }}"
+          
+          gh release create "$version" \
+            --title "DevBench $version" \
+            --notes-file release-notes.md \
+            ./artifacts/*
+          
+          echo "Created release: $version"
+      
+      - name: Summary
+        run: |
+          echo "## Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL:** https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY

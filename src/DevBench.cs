@@ -2,6 +2,7 @@
 #:package Spectre.Console@0.50.0
 
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,17 @@ using Spectre.Console;
 // ============================================================================
 // DevBench - Developer PC Benchmarking Tool
 // ============================================================================
+
+// Handle --version flag first
+if (args.Contains("--version") || args.Contains("-V"))
+{
+    var version = typeof(Program).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? typeof(Program).Assembly.GetName().Version?.ToString()
+        ?? "unknown";
+    Console.WriteLine($"DevBench {version}");
+    return 0;
+}
 
 var verbose = args.Contains("--verbose") || args.Contains("-v");
 var systemInfoOnly = args.Contains("--system-info-only");
