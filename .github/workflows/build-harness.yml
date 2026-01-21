@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/DevBench.cs'
+      - '.github/workflows/build-harness.yml'
   workflow_dispatch:
 
 env:
