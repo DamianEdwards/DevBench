@@ -1,0 +1,32 @@
+{
+  "name": "OrchardCore",
+  "description": "Build the OrchardCore CMS framework",
+  "type": "external-repo",
+  "repoUrl": "https://github.com/OrchardCMS/OrchardCore",
+  "repoRef": "v2.2.1",
+  "tags": ["dotnet", "web", "cms", "aspnetcore"],
+  "prerequisites": [
+    { "command": "dotnet --version", "minVersion": "10.0" }
+  ],
+  "restore": {
+    "command": "dotnet restore",
+    "timeout": 300
+  },
+  "clearCache": {
+    "command": "dotnet clean",
+    "additionalPaths": ["bin", "obj", "src/**/bin", "src/**/obj"]
+  },
+  "build": {
+    "full": {
+      "command": "dotnet build --no-restore",
+      "timeout": 120
+    },
+    "incremental": {
+      "command": "dotnet build --no-restore",
+      "touchFile": "src/OrchardCore/OrchardCore/OrchardCore.csproj",
+      "timeout": 60
+    }
+  },
+  "warmupIterations": 1,
+  "measuredIterations": 3
+}

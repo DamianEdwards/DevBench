@@ -99,12 +99,13 @@ foreach (var benchmark in selectedBenchmarks)
     string workDir;
     if (benchmark.Type == "external-repo")
     {
-        workDir = await CloneExternalRepo(benchmark, cacheDir, verbose);
-        if (workDir == null)
+        var clonedDir = await CloneExternalRepo(benchmark, cacheDir, verbose);
+        if (clonedDir == null)
         {
             AnsiConsole.MarkupLine($"[red]Failed to clone {benchmark.RepoUrl}[/]");
             continue;
         }
+        workDir = clonedDir;
     }
     else
     {
@@ -274,9 +275,18 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
         await ClearCache(benchmark.ClearCache, workDir, verbose);
     }
     
+    // Validate build configuration
+    if (benchmark.Build?.Full == null)
+    {
+        AnsiConsole.MarkupLine("[red]  Error: No build.full command defined[/]");
+        return result;
+    }
+    
+    var buildFull = benchmark.Build.Full;
+    
     // Cold build
     AnsiConsole.MarkupLine("[grey]  Running cold build...[/]");
-    var coldResult = await TimedBuild(benchmark.Build!.Full!, workDir, verbose, envVars);
+    var coldResult = await TimedBuild(buildFull, workDir, verbose, envVars);
     result.ColdRun = coldResult;
     
     // Warm builds
@@ -287,7 +297,7 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     for (int i = 0; i < warmIterations; i++)
     {
         AnsiConsole.MarkupLine($"[grey]  Warmup {i + 1}/{warmIterations}...[/]");
-        await TimedBuild(benchmark.Build.Full, workDir, verbose, envVars);
+        await TimedBuild(buildFull, workDir, verbose, envVars);
     }
     
     // Measured warm runs
@@ -295,7 +305,7 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     for (int i = 0; i < measuredIterations; i++)
     {
         AnsiConsole.MarkupLine($"[grey]  Measured run {i + 1}/{measuredIterations}...[/]");
-        var run = await TimedBuild(benchmark.Build.Full, workDir, verbose, envVars);
+        var run = await TimedBuild(buildFull, workDir, verbose, envVars);
         warmRuns.Add(run);
     }
     result.WarmRuns = warmRuns;
@@ -304,10 +314,13 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     // Incremental build
     if (benchmark.Build.Incremental != null)
     {
-        await ClearCache(benchmark.ClearCache, workDir, verbose);
+        if (benchmark.ClearCache != null)
+        {
+            await ClearCache(benchmark.ClearCache, workDir, verbose);
+        }
         
         // Do a full build first
-        await TimedBuild(benchmark.Build.Full, workDir, verbose, envVars);
+        await TimedBuild(buildFull, workDir, verbose, envVars);
         
         // Touch file
         if (!string.IsNullOrEmpty(benchmark.Build.Incremental.TouchFile))
