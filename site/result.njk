@@ -59,11 +59,11 @@ eleventyComputed:
         <div class="space-y-2">
           <div class="flex items-center gap-2">
             {% if "AMD" in result.machine.cpu.model %}
-              <img src="/icons/amd.svg" alt="AMD" class="h-5 w-auto" title="AMD">
+              <img src="../../icons/amd.svg" alt="AMD" class="h-5 w-auto" title="AMD">
             {% elif "Intel" in result.machine.cpu.model %}
-              <img src="/icons/intel.svg" alt="Intel" class="h-5 w-auto" title="Intel">
+              <img src="../../icons/intel.svg" alt="Intel" class="h-5 w-auto" title="Intel">
             {% elif "Apple" in result.machine.cpu.model %}
-              <img src="/icons/apple.svg" alt="Apple" class="h-5 w-auto" title="Apple Silicon">
+              <img src="../../icons/apple.svg" alt="Apple" class="h-5 w-auto" title="Apple Silicon">
             {% endif %}
             <span class="font-medium">{{ result.machine.cpu.model }}</span>
           </div>
