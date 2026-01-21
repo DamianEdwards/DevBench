@@ -463,10 +463,16 @@ static string? RunCommandSync(string command, string args, TimeSpan timeout, boo
         using var process = Process.Start(psi);
         if (process == null) return null;
         
+        // Read stdout/stderr before WaitForExit to avoid deadlock
         var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
         process.WaitForExit((int)timeout.TotalMilliseconds);
         
-        if (verbose) AnsiConsole.MarkupLine($"[grey]{output}[/]");
+        if (verbose) 
+        {
+            if (!string.IsNullOrWhiteSpace(output)) AnsiConsole.MarkupLine($"[grey]{Markup.Escape(output)}[/]");
+            if (!string.IsNullOrWhiteSpace(error)) AnsiConsole.MarkupLine($"[red]{Markup.Escape(error)}[/]");
+        }
         
         return process.ExitCode == 0 ? output : null;
     }
@@ -503,6 +509,10 @@ static async Task<CommandResult> RunCommandAsync(string command, string args, st
         using var process = Process.Start(psi);
         if (process == null) return new CommandResult { Success = false };
         
+        // Read stdout/stderr concurrently to avoid deadlock when buffers fill
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        
         using var cts = new CancellationTokenSource(timeout);
         
         try
@@ -516,8 +526,8 @@ static async Task<CommandResult> RunCommandAsync(string command, string args, st
             return new CommandResult { Success = false };
         }
         
-        var output = await process.StandardOutput.ReadToEndAsync();
-        var error = await process.StandardError.ReadToEndAsync();
+        var output = await outputTask;
+        var error = await errorTask;
         
         if (verbose)
         {
