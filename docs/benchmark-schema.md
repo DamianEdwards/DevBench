@@ -219,7 +219,7 @@ When benchmarks run, results are saved in this format:
     "os": { "platform": "Windows", "version": "...", "architecture": "X64" },
     "cpu": { "model": "...", "cores": 8 },
     "memory": { "capacityGB": 32 },
-    "storage": { "type": "SSD", "freeSpaceGB": 100 },
+    "storage": { "type": "SSD", "fileSystem": "ReFS", "freeSpaceGB": 100 },
     "dotNetSdks": ["10.0.100"],
     "platformSpecific": { "isDevDrive": true }
   },

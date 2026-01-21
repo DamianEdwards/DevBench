@@ -622,6 +622,7 @@ static StorageInfo GetStorageInfo()
         var drive = new DriveInfo(Path.GetPathRoot(cwd) ?? cwd);
         info.FreeSpaceGB = drive.AvailableFreeSpace / (1024.0 * 1024 * 1024);
         info.Type = drive.DriveType.ToString();
+        info.FileSystem = drive.DriveFormat; // NTFS, FAT32, exFAT, etc. on Windows
     }
     catch { }
     
@@ -634,6 +635,61 @@ static StorageInfo GetStorageInfo()
         if (!string.IsNullOrWhiteSpace(output))
         {
             info.Type = output.Trim();
+        }
+        
+        // Get file system type (more reliable for ReFS/Dev Drive)
+        var fsOutput = RunCommandSync("powershell",
+            $"-Command \"(Get-Volume -FilePath '{cwd}').FileSystemType\"",
+            TimeSpan.FromSeconds(10), false);
+        if (!string.IsNullOrWhiteSpace(fsOutput))
+        {
+            info.FileSystem = fsOutput.Trim();
+        }
+    }
+    else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+    {
+        // Get file system type from df or /proc/mounts
+        var output = RunCommandSync("df", $"-T \"{cwd}\"", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            // df -T output: Filesystem Type 1K-blocks Used Available Use% Mounted
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length > 1)
+            {
+                var parts = lines[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 1)
+                {
+                    info.FileSystem = parts[1]; // ext4, btrfs, xfs, etc.
+                }
+            }
+        }
+    }
+    else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+    {
+        // Get file system type from diskutil or mount
+        var output = RunCommandSync("df", $"-T \"{cwd}\"", TimeSpan.FromSeconds(5), false);
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            // macOS df doesn't have -T, use mount instead
+            output = RunCommandSync("mount", "", TimeSpan.FromSeconds(5), false);
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                // Find the mount point for cwd
+                var cwdRoot = Path.GetPathRoot(cwd) ?? "/";
+                foreach (var line in output.Split('\n'))
+                {
+                    if (line.Contains($" on {cwdRoot} ") || line.Contains(" on / "))
+                    {
+                        // Format: /dev/disk1s1 on / (apfs, local, journaled)
+                        var match = System.Text.RegularExpressions.Regex.Match(line, @"\((\w+),");
+                        if (match.Success)
+                        {
+                            info.FileSystem = match.Groups[1].Value.ToUpperInvariant(); // APFS, HFS, etc.
+                        }
+                        break;
+                    }
+                }
+            }
         }
     }
     
@@ -822,6 +878,7 @@ class MemoryInfo
 class StorageInfo
 {
     public string? Type { get; set; }
+    public string? FileSystem { get; set; }
     public string? Model { get; set; }
     public double FreeSpaceGB { get; set; }
 }

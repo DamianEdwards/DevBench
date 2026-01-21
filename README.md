@@ -35,7 +35,7 @@ Results capture detailed system information so you can compare performance acros
 - **OS**: Platform, version, architecture
 - **CPU**: Model, cores, frequency
 - **Memory**: Capacity, speed
-- **Storage**: Type (SSD/HDD), model, free space
+- **Storage**: Type (SSD/HDD), file system (NTFS, ReFS, ext4, btrfs, APFS), model, free space
 - **Windows-specific**: Dev Drive status, Windows Defender exclusions
 - **macOS-specific**: Chip model (Apple Silicon/Intel), Rosetta 2 status
 - **Linux-specific**: Distribution, kernel version
