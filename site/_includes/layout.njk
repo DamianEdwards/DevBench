@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} - DevBench</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#0078d4',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">
+          <a href="/">🚀 DevBench</a>
+        </h1>
+        <nav>
+          <a href="https://github.com/damianedwards/DevBench" 
+             class="text-gray-600 hover:text-gray-900">
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+  
+  <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+    {{ content | safe }}
+  </main>
+  
+  <footer class="bg-white border-t mt-auto">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
+      DevBench - Developer PC Benchmarking Tool
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,154 @@
+name: Build Harness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/DevBench.cs'
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  HARNESS_NAME: DevBench
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-latest
+            rid: win-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+          - os: macos-latest
+            rid: osx-x64
+          - os: macos-latest
+            rid: osx-arm64
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Build Native AOT
+        run: |
+          dotnet publish src/DevBench.cs `
+            --runtime ${{ matrix.rid }} `
+            --output ./artifacts/${{ matrix.rid }}
+        shell: pwsh
+      
+      - name: Rename artifact
+        run: |
+          $ext = if ("${{ matrix.rid }}".StartsWith("win")) { ".exe" } else { "" }
+          $src = "./artifacts/${{ matrix.rid }}/${{ env.HARNESS_NAME }}$ext"
+          $dst = "./artifacts/${{ env.HARNESS_NAME }}-${{ matrix.rid }}$ext"
+          Move-Item $src $dst
+        shell: pwsh
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.HARNESS_NAME }}-${{ matrix.rid }}
+          path: ./artifacts/${{ env.HARNESS_NAME }}-${{ matrix.rid }}*
+
+  update-draft-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          merge-multiple: true
+      
+      - name: List artifacts
+        run: ls -la ./artifacts/
+      
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+      - name: Get run number
+        id: run
+        run: echo "number=${{ github.run_number }}" >> $GITHUB_OUTPUT
+      
+      - name: Create/Update draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: draft
+          name: "Development Build"
+          body: |
+            ## Development Build
+            
+            **Commit:** ${{ github.sha }}
+            **Build:** #${{ github.run_number }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+            
+            These are automated CI builds. For stable releases, see the latest non-draft release.
+            
+            ### Downloads
+            
+            | Platform | Binary |
+            |----------|--------|
+            | Windows x64 | `DevBench-win-x64.exe` |
+            | Windows ARM64 | `DevBench-win-arm64.exe` |
+            | Linux x64 | `DevBench-linux-x64` |
+            | Linux ARM64 | `DevBench-linux-arm64` |
+            | macOS x64 | `DevBench-osx-x64` |
+            | macOS ARM64 | `DevBench-osx-arm64` |
+          draft: true
+          prerelease: false
+          files: ./artifacts/*
+          fail_on_unmatched_files: true
+      
+      - name: Store release candidate artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-candidate-${{ steps.sha.outputs.short }}
+          path: ./artifacts/*
+          retention-days: 90
+
+  version-info:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Calculate next version
+        id: version
+        run: |
+          # Get latest tag
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          
+          # Parse version
+          version=${latest_tag#v}
+          IFS='.' read -r major minor patch <<< "$version"
+          
+          # Increment patch
+          patch=$((patch + 1))
+          
+          next_version="v$major.$minor.$patch"
+          echo "next=$next_version" >> $GITHUB_OUTPUT
+          echo "Next release version would be: $next_version"
+      
+      - name: Log version info
+        run: |
+          echo "CI Version: 0.0.0-ci.${{ github.run_number }}+${{ github.sha }}"
+          echo "Release Candidate Version: ${{ steps.version.outputs.next }}"

@@ -1,0 +1,182 @@
+---
+title: Benchmark Results
+layout: layout.njk
+---
+
+<div class="space-y-8">
+  <section>
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">About DevBench</h2>
+    <p class="text-gray-600 mb-4">
+      DevBench measures developer PC build performance across different hardware and configurations.
+      Results are submitted by the community to help developers understand how their machines compare.
+    </p>
+    <a href="https://github.com/damianedwards/DevBench#quick-start" 
+       class="inline-block bg-primary text-white px-4 py-2 rounded hover:bg-blue-700">
+      Run Benchmarks on Your Machine
+    </a>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Filters</h2>
+    <div class="flex flex-wrap gap-4 mb-4">
+      <select id="filter-os" class="border rounded px-3 py-2">
+        <option value="">All Platforms</option>
+        <option value="Windows">Windows</option>
+        <option value="macOS">macOS</option>
+        <option value="Linux">Linux</option>
+      </select>
+      <select id="filter-benchmark" class="border rounded px-3 py-2">
+        <option value="">All Benchmarks</option>
+      </select>
+      <input type="search" id="search" placeholder="Search..." 
+             class="border rounded px-3 py-2 w-64">
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Results ({{ results.length }})</h2>
+    
+    {% if results.length == 0 %}
+    <div class="bg-yellow-50 border border-yellow-200 rounded p-4 text-yellow-800">
+      No results submitted yet. Be the first to 
+      <a href="https://github.com/damianedwards/DevBench#submitting-results" class="underline">submit your benchmarks</a>!
+    </div>
+    {% else %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white border rounded-lg" id="results-table">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="submitter">Submitter</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="date">Date</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="os">OS</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="cpu">CPU</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="memory">Memory</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="benchmark">Benchmark</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="cold">Cold Build</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-900 cursor-pointer hover:bg-gray-100" data-sort="warm">Warm (median)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          {% for result in results %}
+            {% for benchmark in result.benchmarks %}
+            <tr class="result-row hover:bg-gray-50" 
+                data-os="{{ result.machine.os.platform }}"
+                data-benchmark="{{ benchmark.name }}"
+                data-submitter="{{ result.submitter }}"
+                data-cold="{{ benchmark.coldRun.durationMs if benchmark.coldRun else 999999 }}"
+                data-warm="{{ benchmark.warmRunStats.medianMs if benchmark.warmRunStats else 999999 }}">
+              <td class="px-4 py-3 text-sm text-gray-900">{{ result.submitter }}</td>
+              <td class="px-4 py-3 text-sm text-gray-500">{{ result.timestamp | formatDate }}</td>
+              <td class="px-4 py-3 text-sm">
+                <span class="inline-flex items-center">
+                  {% if result.machine.os.platform == "Windows" %}🪟{% endif %}
+                  {% if result.machine.os.platform == "macOS" %}🍎{% endif %}
+                  {% if result.machine.os.platform == "Linux" %}🐧{% endif %}
+                  {{ result.machine.os.platform }}
+                  {% if result.machine.platformSpecific.isDevDrive %}
+                    <span class="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">Dev Drive</span>
+                  {% endif %}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-900">
+                {{ result.machine.cpu.model | truncate(40) }}
+                <span class="text-gray-500">({{ result.machine.cpu.cores }} cores)</span>
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-500">{{ result.machine.memory.capacityGB | round(0) }} GB</td>
+              <td class="px-4 py-3 text-sm text-gray-900">{{ benchmark.name }}</td>
+              <td class="px-4 py-3 text-sm text-right font-mono">
+                {% if benchmark.coldRun and benchmark.coldRun.success %}
+                  {{ benchmark.coldRun.durationMs | formatMs }}
+                {% else %}
+                  <span class="text-red-500">failed</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-sm text-right font-mono">
+                {% if benchmark.warmRunStats %}
+                  {{ benchmark.warmRunStats.medianMs | formatMs }}
+                  <span class="text-gray-400 text-xs">(±{{ benchmark.warmRunStats.stdDevMs | round(0) }})</span>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+<script>
+  // Filtering
+  const filterOs = document.getElementById('filter-os');
+  const filterBenchmark = document.getElementById('filter-benchmark');
+  const search = document.getElementById('search');
+  const rows = document.querySelectorAll('.result-row');
+  
+  // Populate benchmark filter
+  const benchmarks = new Set();
+  rows.forEach(row => benchmarks.add(row.dataset.benchmark));
+  benchmarks.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    filterBenchmark.appendChild(opt);
+  });
+  
+  function applyFilters() {
+    const os = filterOs.value;
+    const benchmark = filterBenchmark.value;
+    const query = search.value.toLowerCase();
+    
+    rows.forEach(row => {
+      const matchOs = !os || row.dataset.os === os;
+      const matchBenchmark = !benchmark || row.dataset.benchmark === benchmark;
+      const matchSearch = !query || 
+        row.dataset.submitter.toLowerCase().includes(query) ||
+        row.textContent.toLowerCase().includes(query);
+      
+      row.style.display = matchOs && matchBenchmark && matchSearch ? '' : 'none';
+    });
+  }
+  
+  filterOs.addEventListener('change', applyFilters);
+  filterBenchmark.addEventListener('change', applyFilters);
+  search.addEventListener('input', applyFilters);
+  
+  // Sorting
+  const headers = document.querySelectorAll('[data-sort]');
+  let currentSort = { column: null, asc: true };
+  
+  headers.forEach(header => {
+    header.addEventListener('click', () => {
+      const column = header.dataset.sort;
+      currentSort.asc = currentSort.column === column ? !currentSort.asc : true;
+      currentSort.column = column;
+      
+      const tbody = document.querySelector('#results-table tbody');
+      const sortedRows = Array.from(rows).sort((a, b) => {
+        let aVal, bVal;
+        
+        switch(column) {
+          case 'cold':
+          case 'warm':
+            aVal = parseFloat(a.dataset[column]);
+            bVal = parseFloat(b.dataset[column]);
+            break;
+          default:
+            aVal = a.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent;
+            bVal = b.querySelector(`td:nth-child(${Array.from(headers).indexOf(header) + 1})`).textContent;
+        }
+        
+        if (aVal < bVal) return currentSort.asc ? -1 : 1;
+        if (aVal > bVal) return currentSort.asc ? 1 : -1;
+        return 0;
+      });
+      
+      sortedRows.forEach(row => tbody.appendChild(row));
+    });
+  });
+</script>

@@ -1,0 +1,44 @@
+# .NET
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+*.cache
+*.log
+artifacts/
+
+# .NET file-based apps temp
+.dotnet/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Eleventy
+site/_site/
+site/.cache/
+
+# DevBench cache (cloned repos, downloaded binaries)
+.cache/
+.devbench/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+out/

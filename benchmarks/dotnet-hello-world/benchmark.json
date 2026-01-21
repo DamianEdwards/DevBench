@@ -1,0 +1,30 @@
+{
+  "name": ".NET Hello World",
+  "description": "Build a minimal .NET console application",
+  "type": "in-repo",
+  "tags": ["dotnet", "console", "minimal"],
+  "prerequisites": [
+    { "command": "dotnet --version", "minVersion": "8.0" }
+  ],
+  "restore": {
+    "command": "dotnet restore src",
+    "timeout": 120
+  },
+  "clearCache": {
+    "command": "dotnet clean src",
+    "additionalPaths": ["src/bin", "src/obj"]
+  },
+  "build": {
+    "full": {
+      "command": "dotnet build src -c Release",
+      "timeout": 60
+    },
+    "incremental": {
+      "command": "dotnet build src -c Release",
+      "touchFile": "src/Program.cs",
+      "timeout": 30
+    }
+  },
+  "warmupIterations": 2,
+  "measuredIterations": 5
+}
