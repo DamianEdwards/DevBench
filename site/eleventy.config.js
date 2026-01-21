@@ -4,10 +4,11 @@ const path = require('path');
 module.exports = function(eleventyConfig) {
   // Copy static assets
   eleventyConfig.addPassthroughCopy("css");
+  eleventyConfig.addPassthroughCopy("icons");
   
   // Watch for changes
   eleventyConfig.addWatchTarget("./css/");
-  eleventyConfig.addWatchTarget("../_data/");
+  eleventyConfig.addWatchTarget("../results/");
   
   // Add filters
   eleventyConfig.addFilter("formatDate", (dateString) => {

@@ -1,0 +1,256 @@
+---
+layout: layout.njk
+pagination:
+  data: results
+  size: 1
+  alias: result
+permalink: "results/{{ result.submissionId }}/index.html"
+eleventyComputed:
+  title: "{{ result.submitter }} - {{ result.timestamp | formatDate }}"
+---
+
+<div class="space-y-8">
+  <!-- Header -->
+  <div class="flex items-center gap-4">
+    <a href="/" class="text-primary hover:underline">&larr; Back to Results</a>
+  </div>
+
+  <header>
+    <h1 class="text-2xl font-bold text-gray-900">{{ result.submitter }}</h1>
+    <p class="text-gray-500">Submitted {{ result.timestamp | formatDate }}</p>
+    <p class="text-xs text-gray-400 font-mono mt-1">ID: {{ result.submissionId }}</p>
+  </header>
+
+  <!-- Machine Info -->
+  <section class="bg-white border rounded-lg p-6 space-y-6">
+    <h2 class="text-xl font-semibold text-gray-900 border-b pb-2">Machine Information</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- OS Card -->
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Operating System</h3>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            {% if result.machine.os.platform == "Windows" %}🪟{% endif %}
+            {% if result.machine.os.platform == "macOS" %}🍎{% endif %}
+            {% if result.machine.os.platform == "Linux" %}🐧{% endif %}
+            <span class="font-medium">{{ result.machine.os.platform }}</span>
+            {% if result.machine.platformSpecific.IsDevDrive %}
+              <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Dev Drive</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-gray-600">{{ result.machine.os.version }}</p>
+          <p class="text-sm text-gray-500">Architecture: {{ result.machine.os.architecture }}</p>
+          {% if result.machine.platformSpecific.WindowsBuild %}
+            <p class="text-sm text-gray-500">Build: {{ result.machine.platformSpecific.WindowsBuild }}</p>
+          {% endif %}
+          {% if result.machine.platformSpecific.Distribution %}
+            <p class="text-sm text-gray-500">Distro: {{ result.machine.platformSpecific.Distribution }}</p>
+          {% endif %}
+          {% if result.machine.platformSpecific.KernelVersion %}
+            <p class="text-sm text-gray-500">Kernel: {{ result.machine.platformSpecific.KernelVersion }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- CPU Card -->
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Processor</h3>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            {% if "AMD" in result.machine.cpu.model %}
+              <img src="/icons/amd.svg" alt="AMD" class="h-5 w-auto" title="AMD">
+            {% elif "Intel" in result.machine.cpu.model %}
+              <img src="/icons/intel.svg" alt="Intel" class="h-5 w-auto" title="Intel">
+            {% elif "Apple" in result.machine.cpu.model %}
+              <img src="/icons/apple.svg" alt="Apple" class="h-5 w-auto" title="Apple Silicon">
+            {% endif %}
+            <span class="font-medium">{{ result.machine.cpu.model }}</span>
+          </div>
+          <p class="text-sm text-gray-500">{{ result.machine.cpu.cores }} logical processors</p>
+          {% if result.machine.platformSpecific.ChipModel %}
+            <p class="text-sm text-gray-500">Chip: {{ result.machine.platformSpecific.ChipModel }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Memory Card -->
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Memory</h3>
+        <div class="space-y-2">
+          <p class="font-medium">{{ result.machine.memory.capacityGB | round(0) }} GB</p>
+          {% if result.machine.memory.speedMHz %}
+            <p class="text-sm text-gray-500">Speed: {{ result.machine.memory.speedMHz }} MHz</p>
+          {% endif %}
+          {% if result.machine.memory.partNumber %}
+            <p class="text-sm text-gray-500">Part: {{ result.machine.memory.partNumber }}</p>
+          {% endif %}
+          {% if result.machine.memory.manufacturer and result.machine.memory.manufacturer != "Unknown" %}
+            <p class="text-sm text-gray-500">Manufacturer: {{ result.machine.memory.manufacturer }}</p>
+          {% endif %}
+          {% if result.machine.memory.dimmCount %}
+            <p class="text-sm text-gray-500">Configuration: {{ result.machine.memory.dimmCount }} × {{ result.machine.memory.formFactor or "DIMM" }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Storage Card -->
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Storage</h3>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">{{ result.machine.storage.type }}</span>
+            {% if result.machine.storage.busType %}
+              <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">{{ result.machine.storage.busType }}</span>
+            {% endif %}
+            {% if result.machine.storage.isDevDrive %}
+              <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">Dev Drive</span>
+            {% endif %}
+          </div>
+          {% if result.machine.storage.model %}
+            <p class="text-sm text-gray-500">Model: {{ result.machine.storage.model }}</p>
+          {% endif %}
+          {% if result.machine.storage.fileSystem %}
+            <p class="text-sm text-gray-500">File System: {{ result.machine.storage.fileSystem }}</p>
+          {% endif %}
+          <p class="text-sm text-gray-500">Free Space: {{ result.machine.storage.freeSpaceGB | round(0) }} GB</p>
+        </div>
+      </div>
+
+      <!-- Toolchains Card -->
+      {% if result.machine.toolchains and result.machine.toolchains.length > 0 %}
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Toolchains</h3>
+        <div class="space-y-2">
+          {% for toolchain in result.machine.toolchains %}
+            <div>
+              <span class="text-sm font-medium text-gray-700">{{ toolchain.name }}:</span>
+              <span class="flex flex-wrap gap-1 mt-1">
+                {% for version in toolchain.versions %}
+                  <span class="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded font-mono">{{ version }}</span>
+                {% endfor %}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Legacy .NET SDKs (for old results) -->
+      {% if result.machine.dotNetSdks and result.machine.dotNetSdks.length > 0 and (not result.machine.toolchains or result.machine.toolchains.length == 0) %}
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">.NET SDKs</h3>
+        <div class="flex flex-wrap gap-2">
+          {% for sdk in result.machine.dotNetSdks %}
+            <span class="bg-purple-100 text-purple-800 text-sm px-2 py-1 rounded font-mono">{{ sdk }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Benchmark Results -->
+  <section class="space-y-6">
+    <h2 class="text-xl font-semibold text-gray-900">Benchmark Results</h2>
+    
+    {% for benchmark in result.benchmarks %}
+    <div class="bg-white border rounded-lg p-6 space-y-4">
+      <div class="flex items-center justify-between border-b pb-3">
+        <h3 class="text-lg font-semibold text-gray-900">{{ benchmark.name }}</h3>
+        {% if benchmark.coldRun.success %}
+          <span class="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">✓ Passed</span>
+        {% else %}
+          <span class="bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">✗ Failed</span>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Cold Build -->
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+          <p class="text-sm text-gray-500 mb-1">Cold Build</p>
+          <p class="text-2xl font-bold text-blue-700">{{ benchmark.coldRun.durationMs | formatMs }}</p>
+        </div>
+
+        <!-- Warm Median -->
+        {% if benchmark.warmRunStats %}
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+          <p class="text-sm text-gray-500 mb-1">Warm (median)</p>
+          <p class="text-2xl font-bold text-green-700">{{ benchmark.warmRunStats.medianMs | formatMs }}</p>
+        </div>
+
+        <!-- Warm Mean -->
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+          <p class="text-sm text-gray-500 mb-1">Warm (mean)</p>
+          <p class="text-2xl font-bold text-green-700">{{ benchmark.warmRunStats.meanMs | formatMs }}</p>
+        </div>
+
+        <!-- Std Dev -->
+        <div class="text-center p-4 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-500 mb-1">Std Dev</p>
+          <p class="text-2xl font-bold text-gray-700">±{{ benchmark.warmRunStats.stdDevMs | round(1) }}ms</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Warm Run Stats Detail -->
+      {% if benchmark.warmRunStats %}
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Warm Run Statistics</h4>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div>
+            <p class="text-gray-500">Min</p>
+            <p class="font-mono font-medium">{{ benchmark.warmRunStats.minMs | formatMs }}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Max</p>
+            <p class="font-mono font-medium">{{ benchmark.warmRunStats.maxMs | formatMs }}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Mean</p>
+            <p class="font-mono font-medium">{{ benchmark.warmRunStats.meanMs | formatMs }}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Median</p>
+            <p class="font-mono font-medium">{{ benchmark.warmRunStats.medianMs | formatMs }}</p>
+          </div>
+          <div>
+            <p class="text-gray-500">Std Dev</p>
+            <p class="font-mono font-medium">±{{ benchmark.warmRunStats.stdDevMs | round(2) }}ms</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Individual Warm Runs -->
+      {% if benchmark.warmRuns and benchmark.warmRuns.length > 0 %}
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Individual Warm Runs</h4>
+        <div class="flex flex-wrap gap-2">
+          {% for run in benchmark.warmRuns %}
+            <span class="{% if run.success %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %} text-sm px-3 py-1 rounded font-mono">
+              {{ run.durationMs | formatMs }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Incremental Build -->
+      {% if benchmark.incrementalBuild %}
+      <div class="bg-gray-50 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Incremental Build</h4>
+        <div class="flex items-center gap-4">
+          <span class="text-lg font-mono font-medium">{{ benchmark.incrementalBuild.durationMs | formatMs }}</span>
+          {% if benchmark.incrementalBuild.success %}
+            <span class="text-green-600 text-sm">✓ Success</span>
+          {% else %}
+            <span class="text-red-600 text-sm">✗ Failed</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+</div>

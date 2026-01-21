@@ -5,6 +5,9 @@
   "repoUrl": "https://github.com/OrchardCMS/OrchardCore",
   "repoRef": "v2.2.1",
   "tags": ["dotnet", "web", "cms", "aspnetcore"],
+  "toolchains": [
+    { "stack": "dotnet" }
+  ],
   "prerequisites": [
     { "command": "dotnet --version", "minVersion": "10.0" }
   ],

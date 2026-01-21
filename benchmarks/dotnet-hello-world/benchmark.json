@@ -3,6 +3,9 @@
   "description": "Build a minimal .NET console application",
   "type": "in-repo",
   "tags": ["dotnet", "console", "minimal"],
+  "toolchains": [
+    { "stack": "dotnet" }
+  ],
   "prerequisites": [
     { "command": "dotnet --version", "minVersion": "8.0" }
   ],

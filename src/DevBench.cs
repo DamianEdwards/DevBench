@@ -83,6 +83,14 @@ if (selectedBenchmarks.Count == 0)
     return 0;
 }
 
+// Collect toolchains from all selected benchmarks
+var allToolchainConfigs = selectedBenchmarks
+    .Where(b => b.Toolchains != null)
+    .SelectMany(b => b.Toolchains!)
+    .DistinctBy(t => t.Stack ?? t.Name ?? t.Command)
+    .ToList();
+systemInfo.Toolchains = GetToolchains(allToolchainConfigs);
+
 // Run benchmarks
 var results = new List<BenchmarkResult>();
 var cacheDir = Path.Combine(Environment.CurrentDirectory, ".cache");
@@ -371,18 +379,11 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     result.WarmRuns = warmRuns;
     result.WarmRunStats = CalculateStats(warmRuns);
     
-    // Incremental build
+    // Incremental build - tests rebuild after a small change
+    // No cache clear - we want to measure incremental build from a warm state
     if (benchmark.Build.Incremental != null)
     {
-        if (benchmark.ClearCache != null)
-        {
-            await ClearCache(benchmark.ClearCache, workDir, verbose);
-        }
-        
-        // Do a full build first
-        await TimedBuild(buildFull, workDir, verbose, envVars);
-        
-        // Touch file
+        // Touch file to simulate a code change
         if (!string.IsNullOrEmpty(benchmark.Build.Incremental.TouchFile))
         {
             var touchPath = Path.Combine(workDir, benchmark.Build.Incremental.TouchFile);
@@ -617,7 +618,7 @@ static SystemInfo CollectSystemInfo()
         Cpu = GetCpuInfo(),
         Memory = GetMemoryInfo(),
         Storage = GetStorageInfo(),
-        DotNetSdks = GetDotNetSdks(),
+        Toolchains = new List<ToolchainInfo>(),
         PlatformSpecific = GetPlatformSpecificInfo()
     };
     
@@ -666,12 +667,73 @@ static MemoryInfo GetMemoryInfo()
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
+        // Get total capacity
         var output = RunCommandSync("powershell", 
             "-Command \"(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory\"",
             TimeSpan.FromSeconds(10), false);
         if (long.TryParse(output?.Trim(), out var bytes))
         {
             info.CapacityGB = bytes / (1024.0 * 1024 * 1024);
+        }
+        
+        // Get detailed memory info from Win32_PhysicalMemory
+        var memDetailsOutput = RunCommandSync("powershell",
+            "-Command \"Get-CimInstance Win32_PhysicalMemory | ConvertTo-Json\"",
+            TimeSpan.FromSeconds(10), false);
+        if (!string.IsNullOrWhiteSpace(memDetailsOutput))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(memDetailsOutput);
+                var root = doc.RootElement;
+                
+                // Could be array or single object
+                var memories = root.ValueKind == System.Text.Json.JsonValueKind.Array 
+                    ? root.EnumerateArray().ToList() 
+                    : new List<System.Text.Json.JsonElement> { root };
+                
+                info.DimmCount = memories.Count;
+                
+                if (memories.Count > 0)
+                {
+                    var first = memories[0];
+                    
+                    if (first.TryGetProperty("Speed", out var speedProp) && speedProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        info.SpeedMHz = speedProp.GetInt32();
+                    }
+                    
+                    if (first.TryGetProperty("Manufacturer", out var mfgProp) && mfgProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var mfg = mfgProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(mfg) && mfg != "Unknown")
+                        {
+                            info.Manufacturer = mfg.Trim();
+                        }
+                    }
+                    
+                    if (first.TryGetProperty("PartNumber", out var partProp) && partProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var part = partProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(part))
+                        {
+                            info.PartNumber = part.Trim();
+                        }
+                    }
+                    
+                    if (first.TryGetProperty("FormFactor", out var ffProp) && ffProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        var ff = ffProp.GetInt32();
+                        info.FormFactor = ff switch
+                        {
+                            8 => "DIMM",
+                            12 => "SODIMM",
+                            _ => ff.ToString()
+                        };
+                    }
+                }
+            }
+            catch { }
         }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -681,6 +743,23 @@ static MemoryInfo GetMemoryInfo()
         {
             info.CapacityGB = bytes / (1024.0 * 1024 * 1024);
         }
+        
+        // Try to get memory details from system_profiler
+        var memProfile = RunCommandSync("system_profiler", "SPMemoryDataType", TimeSpan.FromSeconds(10), false);
+        if (!string.IsNullOrWhiteSpace(memProfile))
+        {
+            var speedMatch = System.Text.RegularExpressions.Regex.Match(memProfile, @"Speed:\s*(\d+)\s*MHz");
+            if (speedMatch.Success && int.TryParse(speedMatch.Groups[1].Value, out var speed))
+            {
+                info.SpeedMHz = speed;
+            }
+            
+            var typeMatch = System.Text.RegularExpressions.Regex.Match(memProfile, @"Type:\s*(\S+)");
+            if (typeMatch.Success)
+            {
+                info.FormFactor = typeMatch.Groups[1].Value;
+            }
+        }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
@@ -689,6 +768,40 @@ static MemoryInfo GetMemoryInfo()
         if (match.Success && long.TryParse(match.Groups[1].Value, out var kb))
         {
             info.CapacityGB = kb / (1024.0 * 1024);
+        }
+        
+        // Try dmidecode (requires root, may not work)
+        var dmiOutput = RunCommandSync("dmidecode", "-t memory", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(dmiOutput))
+        {
+            var speedMatch = System.Text.RegularExpressions.Regex.Match(dmiOutput, @"Speed:\s*(\d+)\s*MT/s");
+            if (speedMatch.Success && int.TryParse(speedMatch.Groups[1].Value, out var speed))
+            {
+                info.SpeedMHz = speed;
+            }
+            
+            var mfgMatch = System.Text.RegularExpressions.Regex.Match(dmiOutput, @"Manufacturer:\s*(.+)");
+            if (mfgMatch.Success)
+            {
+                var mfg = mfgMatch.Groups[1].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(mfg) && mfg != "Unknown")
+                {
+                    info.Manufacturer = mfg;
+                }
+            }
+            
+            var partMatch = System.Text.RegularExpressions.Regex.Match(dmiOutput, @"Part Number:\s*(.+)");
+            if (partMatch.Success)
+            {
+                info.PartNumber = partMatch.Groups[1].Value.Trim();
+            }
+            
+            // Count DIMMs
+            var dimmMatches = System.Text.RegularExpressions.Regex.Matches(dmiOutput, @"Size:\s*\d+\s*(MB|GB)");
+            if (dimmMatches.Count > 0)
+            {
+                info.DimmCount = dimmMatches.Count;
+            }
         }
     }
     
@@ -705,78 +818,292 @@ static StorageInfo GetStorageInfo()
         var drive = new DriveInfo(Path.GetPathRoot(cwd) ?? cwd);
         info.FreeSpaceGB = drive.AvailableFreeSpace / (1024.0 * 1024 * 1024);
         info.Type = drive.DriveType.ToString();
-        info.FileSystem = drive.DriveFormat; // NTFS, FAT32, exFAT, etc. on Windows
+        info.FileSystem = drive.DriveFormat;
     }
     catch { }
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        // Try to detect SSD vs HDD
-        var output = RunCommandSync("powershell",
-            "-Command \"(Get-PhysicalDisk | Where-Object { $_.DeviceId -eq 0 }).MediaType\"",
-            TimeSpan.FromSeconds(10), false);
+        // Get detailed disk info for the drive containing cwd using encoded command
+        var escapedCwd = cwd.Replace("'", "''");
+        var script = $@"
+$volume = Get-Volume -FilePath '{escapedCwd}'
+$partition = Get-Partition -DriveLetter $volume.DriveLetter
+$disk = Get-PhysicalDisk | Where-Object {{ $_.DeviceId -eq $partition.DiskNumber }}
+@{{
+    MediaType = $disk.MediaType
+    Model = $disk.Model
+    Manufacturer = $disk.Manufacturer
+    BusType = $disk.BusType
+    FileSystemType = $volume.FileSystemType
+}} | ConvertTo-Json -Compress
+";
+        var bytes = System.Text.Encoding.Unicode.GetBytes(script);
+        var encodedCommand = Convert.ToBase64String(bytes);
+        
+        var output = RunCommandSync("powershell", $"-EncodedCommand {encodedCommand}", TimeSpan.FromSeconds(15), false);
         if (!string.IsNullOrWhiteSpace(output))
         {
-            info.Type = output.Trim();
-        }
-        
-        // Get file system type (more reliable for ReFS/Dev Drive)
-        var fsOutput = RunCommandSync("powershell",
-            $"-Command \"(Get-Volume -FilePath '{cwd}').FileSystemType\"",
-            TimeSpan.FromSeconds(10), false);
-        if (!string.IsNullOrWhiteSpace(fsOutput))
-        {
-            info.FileSystem = fsOutput.Trim();
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(output);
+                var root = doc.RootElement;
+                
+                if (root.TryGetProperty("MediaType", out var mtProp) && mtProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    info.Type = mtProp.GetString();
+                }
+                
+                if (root.TryGetProperty("Model", out var modelProp) && modelProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    info.Model = modelProp.GetString()?.Trim();
+                }
+                
+                // Try to get manufacturer, fall back to extracting from model
+                string? manufacturer = null;
+                if (root.TryGetProperty("Manufacturer", out var mfgProp) && mfgProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    manufacturer = mfgProp.GetString()?.Trim();
+                }
+                
+                if (!string.IsNullOrWhiteSpace(manufacturer))
+                {
+                    info.Manufacturer = manufacturer;
+                }
+                else if (!string.IsNullOrWhiteSpace(info.Model))
+                {
+                    // Extract manufacturer from model name
+                    var firstWord = info.Model.Split(' ').FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(firstWord))
+                    {
+                        info.Manufacturer = firstWord;
+                    }
+                }
+                
+                if (root.TryGetProperty("BusType", out var busProp) && busProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    info.BusType = busProp.GetString();
+                }
+                
+                if (root.TryGetProperty("FileSystemType", out var fsProp) && fsProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var fs = fsProp.GetString();
+                    if (!string.IsNullOrWhiteSpace(fs))
+                    {
+                        info.FileSystem = fs;
+                        info.IsDevDrive = fs.Equals("ReFS", StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+            catch { }
         }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
-        // Get file system type from df or /proc/mounts
-        var output = RunCommandSync("df", $"-T \"{cwd}\"", TimeSpan.FromSeconds(5), false);
-        if (!string.IsNullOrWhiteSpace(output))
+        // Get file system type from df
+        var dfOutput = RunCommandSync("df", $"-T \"{cwd}\"", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(dfOutput))
         {
-            // df -T output: Filesystem Type 1K-blocks Used Available Use% Mounted
-            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            var lines = dfOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length > 1)
             {
                 var parts = lines[1].Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length > 1)
                 {
-                    info.FileSystem = parts[1]; // ext4, btrfs, xfs, etc.
+                    info.FileSystem = parts[1];
                 }
             }
+        }
+        
+        // Get disk model from lsblk
+        var lsblkOutput = RunCommandSync("lsblk", "-o NAME,MODEL,TRAN -d", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(lsblkOutput))
+        {
+            var lines = lsblkOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (lines.Length > 1)
+            {
+                var parts = lines[1].Split(new[] { ' ' }, 3, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    info.Model = parts[1].Trim();
+                    if (!string.IsNullOrWhiteSpace(info.Model))
+                    {
+                        info.Manufacturer = info.Model.Split(' ').FirstOrDefault();
+                    }
+                }
+                if (parts.Length >= 3)
+                {
+                    info.BusType = parts[2].Trim().ToUpperInvariant();
+                }
+            }
+        }
+        
+        // Check if SSD
+        var rotOutput = RunCommandSync("lsblk", "-o ROTA -d", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(rotOutput) && rotOutput.Contains("0"))
+        {
+            info.Type = "SSD";
         }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
     {
-        // Get file system type from diskutil or mount
-        var output = RunCommandSync("df", $"-T \"{cwd}\"", TimeSpan.FromSeconds(5), false);
-        if (string.IsNullOrWhiteSpace(output))
+        // Get disk info from diskutil
+        var diskOutput = RunCommandSync("diskutil", "info /", TimeSpan.FromSeconds(5), false);
+        if (!string.IsNullOrWhiteSpace(diskOutput))
         {
-            // macOS df doesn't have -T, use mount instead
-            output = RunCommandSync("mount", "", TimeSpan.FromSeconds(5), false);
-            if (!string.IsNullOrWhiteSpace(output))
+            var fsMatch = System.Text.RegularExpressions.Regex.Match(diskOutput, @"Type \(Bundle\):\s*(\w+)");
+            if (fsMatch.Success)
             {
-                // Find the mount point for cwd
-                var cwdRoot = Path.GetPathRoot(cwd) ?? "/";
-                foreach (var line in output.Split('\n'))
-                {
-                    if (line.Contains($" on {cwdRoot} ") || line.Contains(" on / "))
-                    {
-                        // Format: /dev/disk1s1 on / (apfs, local, journaled)
-                        var match = System.Text.RegularExpressions.Regex.Match(line, @"\((\w+),");
-                        if (match.Success)
-                        {
-                            info.FileSystem = match.Groups[1].Value.ToUpperInvariant(); // APFS, HFS, etc.
-                        }
-                        break;
-                    }
-                }
+                info.FileSystem = fsMatch.Groups[1].Value.ToUpperInvariant();
+            }
+            
+            var solidMatch = System.Text.RegularExpressions.Regex.Match(diskOutput, @"Solid State:\s*(\w+)");
+            if (solidMatch.Success && solidMatch.Groups[1].Value.Equals("Yes", StringComparison.OrdinalIgnoreCase))
+            {
+                info.Type = "SSD";
+            }
+        }
+        
+        // Get storage profile
+        var storageProfile = RunCommandSync("system_profiler", "SPStorageDataType", TimeSpan.FromSeconds(10), false);
+        if (!string.IsNullOrWhiteSpace(storageProfile))
+        {
+            var modelMatch = System.Text.RegularExpressions.Regex.Match(storageProfile, @"Device Name:\s*(.+)");
+            if (modelMatch.Success)
+            {
+                info.Model = modelMatch.Groups[1].Value.Trim();
+                info.Manufacturer = info.Model.Split(' ').FirstOrDefault();
+            }
+            
+            var protoMatch = System.Text.RegularExpressions.Regex.Match(storageProfile, @"Protocol:\s*(\w+)");
+            if (protoMatch.Success)
+            {
+                info.BusType = protoMatch.Groups[1].Value;
             }
         }
     }
     
     return info;
+}
+
+static List<ToolchainInfo> GetToolchains(List<ToolchainConfig>? configs)
+{
+    var toolchains = new List<ToolchainInfo>();
+    if (configs == null || configs.Count == 0) return toolchains;
+    
+    foreach (var config in configs)
+    {
+        if (!string.IsNullOrEmpty(config.Stack))
+        {
+            var stackToolchains = GetStackToolchains(config.Stack);
+            toolchains.AddRange(stackToolchains);
+        }
+        else if (!string.IsNullOrEmpty(config.Command) && !string.IsNullOrEmpty(config.Name))
+        {
+            var version = GetCustomToolVersion(config.Command);
+            if (!string.IsNullOrEmpty(version))
+            {
+                toolchains.Add(new ToolchainInfo { Name = config.Name, Versions = new List<string> { version } });
+            }
+        }
+    }
+    
+    return toolchains;
+}
+
+static List<ToolchainInfo> GetStackToolchains(string stack)
+{
+    var toolchains = new List<ToolchainInfo>();
+    
+    switch (stack.ToLowerInvariant())
+    {
+        case "dotnet":
+        case ".net":
+            var dotnetSdks = GetDotNetSdks();
+            if (dotnetSdks.Count > 0)
+            {
+                toolchains.Add(new ToolchainInfo { Name = ".NET SDK", Versions = dotnetSdks });
+            }
+            break;
+            
+        case "node":
+        case "nodejs":
+            var nodeVersion = RunCommandSync("node", "--version", TimeSpan.FromSeconds(5), false)?.Trim().TrimStart('v');
+            var npmVersion = RunCommandSync("npm", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            if (!string.IsNullOrEmpty(nodeVersion))
+            {
+                toolchains.Add(new ToolchainInfo { Name = "Node.js", Versions = new List<string> { nodeVersion } });
+            }
+            if (!string.IsNullOrEmpty(npmVersion))
+            {
+                toolchains.Add(new ToolchainInfo { Name = "npm", Versions = new List<string> { npmVersion } });
+            }
+            break;
+            
+        case "python":
+            var pyVersion = RunCommandSync("python", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            if (string.IsNullOrEmpty(pyVersion))
+            {
+                pyVersion = RunCommandSync("python3", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            }
+            if (!string.IsNullOrEmpty(pyVersion))
+            {
+                var version = pyVersion.Replace("Python ", "");
+                toolchains.Add(new ToolchainInfo { Name = "Python", Versions = new List<string> { version } });
+            }
+            break;
+            
+        case "rust":
+            var rustcVersion = RunCommandSync("rustc", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            var cargoVersion = RunCommandSync("cargo", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            if (!string.IsNullOrEmpty(rustcVersion))
+            {
+                var version = System.Text.RegularExpressions.Regex.Match(rustcVersion, @"\d+\.\d+\.\d+").Value;
+                toolchains.Add(new ToolchainInfo { Name = "rustc", Versions = new List<string> { version } });
+            }
+            if (!string.IsNullOrEmpty(cargoVersion))
+            {
+                var version = System.Text.RegularExpressions.Regex.Match(cargoVersion, @"\d+\.\d+\.\d+").Value;
+                toolchains.Add(new ToolchainInfo { Name = "cargo", Versions = new List<string> { version } });
+            }
+            break;
+            
+        case "go":
+        case "golang":
+            var goVersion = RunCommandSync("go", "version", TimeSpan.FromSeconds(5), false)?.Trim();
+            if (!string.IsNullOrEmpty(goVersion))
+            {
+                var version = System.Text.RegularExpressions.Regex.Match(goVersion, @"go(\d+\.\d+(\.\d+)?)").Groups[1].Value;
+                toolchains.Add(new ToolchainInfo { Name = "Go", Versions = new List<string> { version } });
+            }
+            break;
+            
+        case "java":
+            var javaVersion = RunCommandSync("java", "--version", TimeSpan.FromSeconds(5), false)?.Trim();
+            if (!string.IsNullOrEmpty(javaVersion))
+            {
+                var firstLine = javaVersion.Split('\n').FirstOrDefault() ?? "";
+                var version = System.Text.RegularExpressions.Regex.Match(firstLine, @"\d+(\.\d+)*").Value;
+                toolchains.Add(new ToolchainInfo { Name = "Java", Versions = new List<string> { version } });
+            }
+            break;
+    }
+    
+    return toolchains;
+}
+
+static string? GetCustomToolVersion(string command)
+{
+    var parts = command.Split(' ', 2);
+    var tool = parts[0];
+    var args = parts.Length > 1 ? parts[1] : "";
+    
+    var output = RunCommandSync(tool, args, TimeSpan.FromSeconds(10), false)?.Trim();
+    if (string.IsNullOrEmpty(output)) return null;
+    
+    // Try to extract version number
+    var versionMatch = System.Text.RegularExpressions.Regex.Match(output, @"(\d+\.\d+(\.\d+)*)");
+    return versionMatch.Success ? versionMatch.Groups[1].Value : output.Split('\n').FirstOrDefault();
 }
 
 static List<string> GetDotNetSdks()
@@ -795,13 +1122,6 @@ static Dictionary<string, object> GetPlatformSpecificInfo()
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        // Dev Drive detection
-        var cwd = Environment.CurrentDirectory;
-        var devDriveOutput = RunCommandSync("powershell",
-            $"-Command \"(Get-Volume -FilePath '{cwd}').FileSystemType\"",
-            TimeSpan.FromSeconds(10), false);
-        info["IsDevDrive"] = devDriveOutput?.Trim().Equals("ReFS", StringComparison.OrdinalIgnoreCase) == true;
-        
         // Windows build
         info["WindowsBuild"] = Environment.OSVersion.Version.Build;
     }
@@ -854,6 +1174,7 @@ class BenchmarkManifest
     public string? WorkingDirectory { get; set; }
     public Dictionary<string, string>? EnvironmentVariables { get; set; }
     public List<Prerequisite>? Prerequisites { get; set; }
+    public List<ToolchainConfig>? Toolchains { get; set; }
     public RestoreConfig? Restore { get; set; }
     public ClearCacheConfig? ClearCache { get; set; }
     public List<string>? PreBuild { get; set; }
@@ -863,6 +1184,13 @@ class BenchmarkManifest
     
     [JsonIgnore]
     public string FolderName { get; set; } = "";
+}
+
+class ToolchainConfig
+{
+    public string? Stack { get; set; }
+    public string? Name { get; set; }
+    public string? Command { get; set; }
 }
 
 class Prerequisite
@@ -935,8 +1263,14 @@ class SystemInfo
     public CpuInfo Cpu { get; set; } = new();
     public MemoryInfo Memory { get; set; } = new();
     public StorageInfo Storage { get; set; } = new();
-    public List<string> DotNetSdks { get; set; } = new();
+    public List<ToolchainInfo> Toolchains { get; set; } = new();
     public Dictionary<string, object> PlatformSpecific { get; set; } = new();
+}
+
+class ToolchainInfo
+{
+    public string Name { get; set; } = "";
+    public List<string> Versions { get; set; } = new();
 }
 
 class OsInfo
@@ -957,13 +1291,20 @@ class MemoryInfo
 {
     public double CapacityGB { get; set; }
     public int? SpeedMHz { get; set; }
+    public string? Manufacturer { get; set; }
+    public string? PartNumber { get; set; }
+    public int? DimmCount { get; set; }
+    public string? FormFactor { get; set; }
 }
 
 class StorageInfo
 {
     public string? Type { get; set; }
     public string? FileSystem { get; set; }
+    public string? Manufacturer { get; set; }
     public string? Model { get; set; }
+    public string? BusType { get; set; }
+    public bool IsDevDrive { get; set; }
     public double FreeSpaceGB { get; set; }
 }
 
@@ -989,4 +1330,6 @@ class CommandResult
 [JsonSerializable(typeof(BenchmarkSubmission))]
 [JsonSerializable(typeof(SystemInfo))]
 [JsonSerializable(typeof(List<BenchmarkManifest>))]
+[JsonSerializable(typeof(ToolchainInfo))]
+[JsonSerializable(typeof(ToolchainConfig))]
 partial class DevBenchJsonContext : JsonSerializerContext { }

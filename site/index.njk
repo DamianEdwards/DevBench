@@ -59,12 +59,14 @@ layout: layout.njk
         <tbody class="divide-y divide-gray-200">
           {% for result in results %}
             {% for benchmark in result.benchmarks %}
-            <tr class="result-row hover:bg-gray-50" 
+            <tr class="result-row hover:bg-gray-50 cursor-pointer" 
                 data-os="{{ result.machine.os.platform }}"
                 data-benchmark="{{ benchmark.name }}"
                 data-submitter="{{ result.submitter }}"
                 data-cold="{{ benchmark.coldRun.durationMs if benchmark.coldRun else 999999 }}"
-                data-warm="{{ benchmark.warmRunStats.medianMs if benchmark.warmRunStats else 999999 }}">
+                data-warm="{{ benchmark.warmRunStats.medianMs if benchmark.warmRunStats else 999999 }}"
+                data-href="/results/{{ result.submissionId }}/"
+                onclick="window.location.href=this.dataset.href">
               <td class="px-4 py-3 text-sm text-gray-900">{{ result.submitter }}</td>
               <td class="px-4 py-3 text-sm text-gray-500">{{ result.timestamp | formatDate }}</td>
               <td class="px-4 py-3 text-sm">
@@ -73,14 +75,23 @@ layout: layout.njk
                   {% if result.machine.os.platform == "macOS" %}🍎{% endif %}
                   {% if result.machine.os.platform == "Linux" %}🐧{% endif %}
                   {{ result.machine.os.platform }}
-                  {% if result.machine.platformSpecific.isDevDrive %}
+                  {% if result.machine.storage.isDevDrive or result.machine.platformSpecific.isDevDrive or result.machine.platformSpecific.IsDevDrive %}
                     <span class="ml-1 text-xs bg-green-100 text-green-800 px-1 rounded">Dev Drive</span>
                   {% endif %}
                 </span>
               </td>
               <td class="px-4 py-3 text-sm text-gray-900">
-                {{ result.machine.cpu.model | truncate(40) }}
-                <span class="text-gray-500">({{ result.machine.cpu.cores }} cores)</span>
+                <span class="inline-flex items-center gap-2">
+                  {% if "AMD" in result.machine.cpu.model %}
+                    <img src="/icons/amd.svg" alt="AMD" class="h-4 w-auto" title="AMD">
+                  {% elif "Intel" in result.machine.cpu.model %}
+                    <img src="/icons/intel.svg" alt="Intel" class="h-4 w-auto" title="Intel">
+                  {% elif "Apple" in result.machine.cpu.model %}
+                    <img src="/icons/apple.svg" alt="Apple" class="h-4 w-auto" title="Apple Silicon">
+                  {% endif %}
+                  <span>{{ result.machine.cpu.model | truncate(40) }}</span>
+                  <span class="text-gray-500">({{ result.machine.cpu.cores }} cores)</span>
+                </span>
               </td>
               <td class="px-4 py-3 text-sm text-gray-500">{{ result.machine.memory.capacityGB | round(0) }} GB</td>
               <td class="px-4 py-3 text-sm text-gray-900">{{ benchmark.name }}</td>
