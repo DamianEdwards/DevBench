@@ -14,8 +14,11 @@
   },
   "clearCache": {
     "command": "dotnet clean",
-    "additionalPaths": ["bin", "obj", "src/**/bin", "src/**/obj"]
+    "additionalPaths": ["bin", "src/**/bin"]
   },
+  "preBuild": [
+    "dotnet build-server shutdown"
+  ],
   "build": {
     "full": {
       "command": "dotnet build --no-restore",

@@ -78,7 +78,36 @@ function Build-LocalHarness {
         exit 1
     }
     
-    # Build native AOT
+    # Build and get the assembly path (avoids issues with dotnet run and build servers)
+    Push-Location $PSScriptRoot
+    try {
+        # Build and get the target path
+        $buildOutput = & dotnet build $srcFile -getProperty:TargetPath 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed:" -ForegroundColor Red
+            Write-Host $buildOutput -ForegroundColor Red
+            exit 1
+        }
+        
+        # The last line should be the target path
+        $targetPath = ($buildOutput | Select-Object -Last 1).Trim()
+        
+        if (-not (Test-Path $targetPath)) {
+            Write-Host "Error: Built assembly not found at $targetPath" -ForegroundColor Red
+            exit 1
+        }
+        
+        # Store the path for running with dotnet exec
+        return $targetPath
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Build-NativeHarness {
+    Write-Host "Building native AOT harness..." -ForegroundColor Cyan
+    
     New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
     
     Push-Location $PSScriptRoot
@@ -101,30 +130,43 @@ function Build-LocalHarness {
 }
 
 # Main logic
-$needsBuild = $Force -or $LocalBuild -or (-not (Test-Path $harnessPath))
+$useNativeHarness = $false
+$assemblyPath = $null
 
-if ($needsBuild) {
-    if (-not $LocalBuild) {
+if (-not $LocalBuild) {
+    # Try to use pre-built native binary
+    if ($Force -or -not (Test-Path $harnessPath)) {
         $release = Get-LatestRelease
         if ($release) {
             $downloaded = Download-Harness -Release $release
             if ($downloaded) {
-                $needsBuild = $false
+                $useNativeHarness = $true
             }
         }
     }
-    
-    if ($needsBuild -or $LocalBuild) {
-        Build-LocalHarness
+    else {
+        $useNativeHarness = $true
     }
 }
 
-# Run the harness
-if (-not (Test-Path $harnessPath)) {
-    Write-Host "Error: Harness not found at $harnessPath" -ForegroundColor Red
-    exit 1
+if (-not $useNativeHarness) {
+    # Local dev mode: build to assembly and run with dotnet exec
+    # This avoids conflicts with dotnet build-server shutdown in benchmarks
+    $assemblyPath = Build-LocalHarness
 }
 
-Write-Host "Running DevBench..." -ForegroundColor Green
-& $harnessPath @HarnessArgs
+# Run the harness
+if ($useNativeHarness) {
+    if (-not (Test-Path $harnessPath)) {
+        Write-Host "Error: Harness not found at $harnessPath" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Running DevBench..." -ForegroundColor Green
+    & $harnessPath @HarnessArgs
+}
+else {
+    Write-Host "Running DevBench..." -ForegroundColor Green
+    & dotnet exec $assemblyPath @HarnessArgs
+}
+
 exit $LASTEXITCODE

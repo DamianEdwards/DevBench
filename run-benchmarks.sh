@@ -110,9 +110,34 @@ build_local_harness() {
         exit 1
     fi
     
+    # Build and get the assembly path (avoids issues with dotnet run and build servers)
+    cd "$SCRIPT_DIR"
+    
+    # Build and capture target path
+    local build_output
+    build_output=$(dotnet build "$SRC_FILE" -getProperty:TargetPath 2>&1)
+    local build_exit_code=$?
+    
+    if [ $build_exit_code -ne 0 ]; then
+        echo "Build failed:"
+        echo "$build_output"
+        exit 1
+    fi
+    
+    # The last line should be the target path
+    ASSEMBLY_PATH=$(echo "$build_output" | tail -1 | tr -d '[:space:]')
+    
+    if [ ! -f "$ASSEMBLY_PATH" ]; then
+        echo "Error: Built assembly not found at $ASSEMBLY_PATH"
+        exit 1
+    fi
+}
+
+build_native_harness() {
+    echo "Building native AOT harness..."
+    
     mkdir -p "$CACHE_DIR"
     
-    # Build native AOT
     cd "$SCRIPT_DIR"
     dotnet publish "$SRC_FILE" --output "$CACHE_DIR" --runtime "$RID"
     
@@ -123,32 +148,38 @@ build_local_harness() {
 }
 
 # Main logic
-NEEDS_BUILD=false
+USE_NATIVE_HARNESS=false
+ASSEMBLY_PATH=""
 
-if [ "$FORCE" = true ] || [ "$LOCAL_BUILD" = true ] || [ ! -f "$HARNESS_PATH" ]; then
-    NEEDS_BUILD=true
-fi
-
-if [ "$NEEDS_BUILD" = true ]; then
-    if [ "$LOCAL_BUILD" != true ]; then
+if [ "$LOCAL_BUILD" != true ]; then
+    # Try to use pre-built native binary
+    if [ "$FORCE" = true ] || [ ! -f "$HARNESS_PATH" ]; then
         release=$(get_latest_release)
         if [ -n "$release" ] && echo "$release" | grep -q '"tag_name"'; then
             if download_harness "$release"; then
-                NEEDS_BUILD=false
+                USE_NATIVE_HARNESS=true
             fi
         fi
+    else
+        USE_NATIVE_HARNESS=true
     fi
-    
-    if [ "$NEEDS_BUILD" = true ]; then
-        build_local_harness
-    fi
+fi
+
+if [ "$USE_NATIVE_HARNESS" != true ]; then
+    # Local dev mode: build to assembly and run with dotnet exec
+    # This avoids conflicts with dotnet build-server shutdown in benchmarks
+    build_local_harness
 fi
 
 # Run the harness
-if [ ! -f "$HARNESS_PATH" ]; then
-    echo "Error: Harness not found at $HARNESS_PATH"
-    exit 1
+if [ "$USE_NATIVE_HARNESS" = true ]; then
+    if [ ! -f "$HARNESS_PATH" ]; then
+        echo "Error: Harness not found at $HARNESS_PATH"
+        exit 1
+    fi
+    echo "Running DevBench..."
+    exec "$HARNESS_PATH" "${HARNESS_ARGS[@]}"
+else
+    echo "Running DevBench..."
+    exec dotnet exec "$ASSEMBLY_PATH" "${HARNESS_ARGS[@]}"
 fi
-
-echo "Running DevBench..."
-exec "$HARNESS_PATH" "${HARNESS_ARGS[@]}"

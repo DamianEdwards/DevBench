@@ -325,6 +325,16 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
         await ClearCache(benchmark.ClearCache, workDir, verbose);
     }
     
+    // Run pre-build steps (e.g., dotnet build-server shutdown)
+    if (benchmark.PreBuild != null)
+    {
+        foreach (var step in benchmark.PreBuild)
+        {
+            if (verbose) AnsiConsole.MarkupLine($"[grey]  Pre-build: {step}[/]");
+            await RunCommandAsync(step, "", workDir, TimeSpan.FromMinutes(1), verbose, envVars);
+        }
+    }
+    
     // Validate build configuration
     if (benchmark.Build?.Full == null)
     {
@@ -846,6 +856,7 @@ class BenchmarkManifest
     public List<Prerequisite>? Prerequisites { get; set; }
     public RestoreConfig? Restore { get; set; }
     public ClearCacheConfig? ClearCache { get; set; }
+    public List<string>? PreBuild { get; set; }
     public BuildConfig? Build { get; set; }
     public int? WarmupIterations { get; set; }
     public int? MeasuredIterations { get; set; }

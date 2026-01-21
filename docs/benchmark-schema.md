@@ -26,15 +26,18 @@ This document describes the `benchmark.json` manifest format used to define benc
   },
   "clearCache": {
     "command": "dotnet clean",
-    "additionalPaths": ["bin", "obj", ".vs"]
+    "additionalPaths": ["bin", ".vs"]
   },
+  "preBuild": [
+    "dotnet build-server shutdown"
+  ],
   "build": {
     "full": {
-      "command": "dotnet build -c Release",
+      "command": "dotnet build -c Release --no-restore",
       "timeout": 300
     },
     "incremental": {
-      "command": "dotnet build -c Release",
+      "command": "dotnet build -c Release --no-restore",
       "touchFile": "src/Program.cs",
       "timeout": 120
     }
@@ -68,6 +71,7 @@ This document describes the `benchmark.json` manifest format used to define benc
 | `prerequisites` | array | `[]` | Commands to check before running |
 | `restore` | object | - | Dependency restore phase configuration |
 | `clearCache` | object | - | Cache clearing configuration |
+| `preBuild` | string[] | `[]` | Commands to run before cold build (e.g., `["dotnet build-server shutdown"]`) |
 | `build.incremental` | object | - | Incremental build configuration |
 | `warmupIterations` | number | `2` | Number of warm-up runs (not measured) |
 | `measuredIterations` | number | `5` | Number of timed runs to average |
@@ -114,7 +118,7 @@ The restore phase runs before benchmarking and is not timed.
 ```json
 {
   "command": "dotnet clean",
-  "additionalPaths": ["bin", "obj", ".vs"]
+  "additionalPaths": ["bin", ".vs"]
 }
 ```
 
@@ -122,6 +126,20 @@ The restore phase runs before benchmarking and is not timed.
 - `additionalPaths`: Additional directories to delete
 
 Run before cold builds to ensure accurate measurements.
+
+**Note:** For .NET benchmarks using `--no-restore`, do NOT include `obj` in additionalPaths as it contains `project.assets.json` needed for builds.
+
+### `preBuild`
+
+```json
+["dotnet build-server shutdown"]
+```
+
+Array of commands to run before the cold build starts. Not timed. Use this for:
+- Shutting down build servers (`dotnet build-server shutdown`)
+- Any other setup that should happen before timing begins
+
+**For .NET benchmarks:** Always include `"dotnet build-server shutdown"` to ensure cold builds are truly cold.
 
 ### `build.full`
 
