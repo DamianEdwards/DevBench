@@ -39,7 +39,7 @@ Use this template:
   },
   "clearCache": {
     "command": "dotnet clean",
-    "additionalPaths": ["bin"]
+    "additionalPaths": ["bin", "obj"]
   },
   "preBuild": [
     "dotnet build-server shutdown"

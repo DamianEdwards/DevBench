@@ -26,7 +26,7 @@ This document describes the `benchmark.json` manifest format used to define benc
   },
   "clearCache": {
     "command": "dotnet clean",
-    "additionalPaths": ["bin", ".vs"]
+    "additionalPaths": ["bin", "obj", ".vs"]
   },
   "preBuild": [
     "dotnet build-server shutdown"
@@ -118,16 +118,14 @@ The restore phase runs before benchmarking and is not timed.
 ```json
 {
   "command": "dotnet clean",
-  "additionalPaths": ["bin", ".vs"]
+  "additionalPaths": ["bin", "obj", ".vs"]
 }
 ```
 
 - `command`: Command to clear caches
 - `additionalPaths`: Additional directories to delete
 
-Run before cold builds to ensure accurate measurements.
-
-**Note:** For .NET benchmarks using `--no-restore`, do NOT include `obj` in additionalPaths as it contains `project.assets.json` needed for builds.
+Runs **before restore** to ensure a completely clean state. The restore phase repopulates `obj/project.assets.json` after cleaning.
 
 ### `preBuild`
 

@@ -311,18 +311,18 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     var result = new BenchmarkResult { Name = benchmark.Name };
     var envVars = benchmark.EnvironmentVariables ?? new Dictionary<string, string>();
     
+    // Clear cache first (before restore, so restore repopulates what's needed)
+    if (benchmark.ClearCache != null)
+    {
+        await ClearCache(benchmark.ClearCache, workDir, verbose);
+    }
+    
     // Restore phase
     if (benchmark.Restore != null)
     {
         AnsiConsole.MarkupLine("[grey]  Restoring dependencies...[/]");
         var timeout = TimeSpan.FromSeconds(benchmark.Restore.Timeout ?? 300);
         await RunCommandAsync(benchmark.Restore.Command, "", workDir, timeout, verbose, envVars);
-    }
-    
-    // Clear cache
-    if (benchmark.ClearCache != null)
-    {
-        await ClearCache(benchmark.ClearCache, workDir, verbose);
     }
     
     // Run pre-build steps (e.g., dotnet build-server shutdown)

@@ -14,7 +14,7 @@
   },
   "clearCache": {
     "command": "dotnet clean",
-    "additionalPaths": ["bin", "src/**/bin"]
+    "additionalPaths": ["bin", "obj", "src/**/bin", "src/**/obj"]
   },
   "preBuild": [
     "dotnet build-server shutdown"
