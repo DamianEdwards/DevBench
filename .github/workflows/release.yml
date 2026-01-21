@@ -87,6 +87,13 @@ jobs:
           echo "Downloaded artifacts:"
           ls -la ./artifacts/
       
+      - name: Create benchmarks archive
+        run: |
+          cd benchmarks
+          zip -r ../artifacts/benchmarks.zip .
+          echo "Created benchmarks.zip"
+          ls -la ../artifacts/benchmarks.zip
+      
       - name: Verify artifacts
         run: |
           expected_files=(
@@ -96,6 +103,7 @@ jobs:
             "DevBench-linux-arm64"
             "DevBench-osx-x64"
             "DevBench-osx-arm64"
+            "benchmarks.zip"
           )
           
           for file in "${expected_files[@]}"; do

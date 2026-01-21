@@ -3,12 +3,16 @@
 
 param(
     [switch]$Force,
-    [switch]$LocalBuild,
+    [switch]$Dev,
+    [switch]$LocalBuild,  # Kept for backward compatibility, same as -Dev
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$HarnessArgs
 )
 
 $ErrorActionPreference = "Stop"
+
+# -LocalBuild is an alias for -Dev
+if ($LocalBuild) { $Dev = $true }
 
 $repoOwner = "damianedwards"
 $repoName = "DevBench"
@@ -16,6 +20,9 @@ $harnessName = "DevBench"
 $cacheDir = Join-Path $PSScriptRoot ".devbench"
 $srcFile = Join-Path $PSScriptRoot "src" "DevBench.cs"
 $versionFile = Join-Path $cacheDir "version.txt"
+$benchmarksZip = Join-Path $cacheDir "benchmarks.zip"
+$cachedBenchmarksDir = Join-Path $cacheDir "benchmarks"
+$localBenchmarksDir = Join-Path $PSScriptRoot "benchmarks"
 
 # Determine platform
 $os = if ($IsWindows -or $env:OS -eq "Windows_NT") { "win" }
@@ -80,6 +87,23 @@ function Download-Harness {
     
     Write-Host "Downloading $assetName (v$($Release.tag_name -replace '^v', ''))..." -ForegroundColor Cyan
     Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $harnessPath
+    
+    # Download benchmarks.zip
+    $benchmarksAsset = $Release.assets | Where-Object { $_.name -eq "benchmarks.zip" }
+    if ($benchmarksAsset) {
+        Write-Host "Downloading benchmarks.zip..." -ForegroundColor Cyan
+        Invoke-WebRequest -Uri $benchmarksAsset.browser_download_url -OutFile $benchmarksZip
+        
+        # Extract benchmarks
+        if (Test-Path $cachedBenchmarksDir) {
+            Remove-Item -Recurse -Force $cachedBenchmarksDir
+        }
+        Expand-Archive -Path $benchmarksZip -DestinationPath $cachedBenchmarksDir -Force
+        Write-Host "Extracted benchmarks to $cachedBenchmarksDir" -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host "Warning: benchmarks.zip not found in release, will use local benchmarks" -ForegroundColor Yellow
+    }
     
     # Save version
     $Release.tag_name -replace '^v', '' | Set-Content $versionFile
@@ -162,7 +186,7 @@ function Build-NativeHarness {
 $useNativeHarness = $false
 $assemblyPath = $null
 
-if (-not $LocalBuild) {
+if (-not $Dev) {
     # Try to use pre-built native binary
     $release = Get-LatestRelease
     
@@ -214,6 +238,16 @@ if (-not $useNativeHarness) {
     $assemblyPath = Build-LocalHarness
 }
 
+# Determine which benchmarks to use
+$benchmarksPath = $localBenchmarksDir
+if ($useNativeHarness -and (Test-Path $cachedBenchmarksDir)) {
+    $benchmarksPath = $cachedBenchmarksDir
+    Write-Host "Using release benchmarks from $cachedBenchmarksDir" -ForegroundColor DarkGray
+}
+elseif (-not $Dev) {
+    Write-Host "Using local benchmarks (no cached benchmarks available)" -ForegroundColor DarkGray
+}
+
 # Run the harness
 if ($useNativeHarness) {
     if (-not (Test-Path $harnessPath)) {
@@ -221,11 +255,11 @@ if ($useNativeHarness) {
         exit 1
     }
     Write-Host "Running DevBench..." -ForegroundColor Green
-    & $harnessPath @HarnessArgs
+    & $harnessPath --benchmarks-path $benchmarksPath @HarnessArgs
 }
 else {
-    Write-Host "Running DevBench..." -ForegroundColor Green
-    & dotnet exec $assemblyPath @HarnessArgs
+    Write-Host "Running DevBench (dev mode)..." -ForegroundColor Green
+    & dotnet exec $assemblyPath --benchmarks-path $benchmarksPath @HarnessArgs
 }
 
 exit $LASTEXITCODE

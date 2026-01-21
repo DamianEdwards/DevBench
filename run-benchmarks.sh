@@ -11,10 +11,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="$SCRIPT_DIR/.devbench"
 SRC_FILE="$SCRIPT_DIR/src/DevBench.cs"
 VERSION_FILE="$CACHE_DIR/version.txt"
+BENCHMARKS_ZIP="$CACHE_DIR/benchmarks.zip"
+CACHED_BENCHMARKS_DIR="$CACHE_DIR/benchmarks"
+LOCAL_BENCHMARKS_DIR="$SCRIPT_DIR/benchmarks"
 
 # Parse arguments
 FORCE=false
-LOCAL_BUILD=false
+DEV=false
 HARNESS_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -23,8 +26,8 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
-        --local-build)
-            LOCAL_BUILD=true
+        --dev|--local-build)
+            DEV=true
             shift
             ;;
         *)
@@ -113,6 +116,21 @@ download_harness() {
     curl -L -o "$HARNESS_PATH" "$download_url"
     chmod +x "$HARNESS_PATH"
     
+    # Download benchmarks.zip
+    local benchmarks_url=$(echo "$release" | grep -o "\"browser_download_url\": \"[^\"]*benchmarks.zip\"" | cut -d'"' -f4)
+    if [ -n "$benchmarks_url" ]; then
+        echo "Downloading benchmarks.zip..."
+        curl -L -o "$BENCHMARKS_ZIP" "$benchmarks_url"
+        
+        # Extract benchmarks
+        rm -rf "$CACHED_BENCHMARKS_DIR"
+        mkdir -p "$CACHED_BENCHMARKS_DIR"
+        unzip -q "$BENCHMARKS_ZIP" -d "$CACHED_BENCHMARKS_DIR"
+        echo "Extracted benchmarks to $CACHED_BENCHMARKS_DIR"
+    else
+        echo "Warning: benchmarks.zip not found in release, will use local benchmarks"
+    fi
+    
     # Save version
     echo "$version" > "$VERSION_FILE"
     
@@ -177,7 +195,7 @@ build_native_harness() {
 USE_NATIVE_HARNESS=false
 ASSEMBLY_PATH=""
 
-if [ "$LOCAL_BUILD" != true ]; then
+if [ "$DEV" != true ]; then
     release=$(get_latest_release)
     
     if [ "$FORCE" = true ]; then
@@ -221,6 +239,15 @@ if [ "$USE_NATIVE_HARNESS" != true ]; then
     build_local_harness
 fi
 
+# Determine which benchmarks to use
+BENCHMARKS_PATH="$LOCAL_BENCHMARKS_DIR"
+if [ "$USE_NATIVE_HARNESS" = true ] && [ -d "$CACHED_BENCHMARKS_DIR" ]; then
+    BENCHMARKS_PATH="$CACHED_BENCHMARKS_DIR"
+    echo "Using release benchmarks from $CACHED_BENCHMARKS_DIR"
+elif [ "$DEV" != true ]; then
+    echo "Using local benchmarks (no cached benchmarks available)"
+fi
+
 # Run the harness
 if [ "$USE_NATIVE_HARNESS" = true ]; then
     if [ ! -f "$HARNESS_PATH" ]; then
@@ -228,8 +255,8 @@ if [ "$USE_NATIVE_HARNESS" = true ]; then
         exit 1
     fi
     echo "Running DevBench..."
-    exec "$HARNESS_PATH" "${HARNESS_ARGS[@]}"
+    exec "$HARNESS_PATH" --benchmarks-path "$BENCHMARKS_PATH" "${HARNESS_ARGS[@]}"
 else
-    echo "Running DevBench..."
-    exec dotnet exec "$ASSEMBLY_PATH" "${HARNESS_ARGS[@]}"
+    echo "Running DevBench (dev mode)..."
+    exec dotnet exec "$ASSEMBLY_PATH" --benchmarks-path "$BENCHMARKS_PATH" "${HARNESS_ARGS[@]}"
 fi

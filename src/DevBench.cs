@@ -27,6 +27,7 @@ var verbose = args.Contains("--verbose") || args.Contains("-v");
 var systemInfoOnly = args.Contains("--system-info-only");
 var restoreOnly = args.Contains("--restore-only");
 var specificBenchmark = GetArgValue(args, "--benchmark") ?? GetArgValue(args, "-b");
+var benchmarksPathArg = GetArgValue(args, "--benchmarks-path");
 
 // Collect system info first
 if (!restoreOnly)
@@ -42,10 +43,18 @@ if (systemInfoOnly)
 }
 
 // Find all benchmarks
-var benchmarksDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "benchmarks");
-if (!Directory.Exists(benchmarksDir))
+string benchmarksDir;
+if (!string.IsNullOrEmpty(benchmarksPathArg) && Directory.Exists(benchmarksPathArg))
 {
-    benchmarksDir = Path.Combine(Environment.CurrentDirectory, "benchmarks");
+    benchmarksDir = benchmarksPathArg;
+}
+else
+{
+    benchmarksDir = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "benchmarks");
+    if (!Directory.Exists(benchmarksDir))
+    {
+        benchmarksDir = Path.Combine(Environment.CurrentDirectory, "benchmarks");
+    }
 }
 
 if (!Directory.Exists(benchmarksDir))

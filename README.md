@@ -79,8 +79,24 @@ DevBench/
 
 ## Requirements
 
-- **To run benchmarks**: Just clone and run the script (downloads pre-built harness)
-- **To develop the harness**: .NET 10 SDK
+- **To run benchmarks**: Just clone and run the script (downloads pre-built harness and benchmarks)
+- **To develop the harness or benchmarks**: .NET 10 SDK, use `--dev` flag
+
+## Development Mode
+
+When contributing to DevBench (harness or benchmarks), use the `--dev` flag:
+
+```powershell
+# Windows
+.\run-benchmarks.ps1 -Dev
+```
+
+```bash
+# macOS / Linux
+./run-benchmarks.sh --dev
+```
+
+This builds the harness locally and uses the local `benchmarks/` folder instead of the release versions.
 
 ## License
 
