@@ -95,7 +95,7 @@ else
             .MoreChoicesText("[grey](Move up and down to reveal more benchmarks)[/]")
             .InstructionsText("[grey](Press [blue]<space>[/] to toggle, [green]<enter>[/] to accept)[/]")
             .AddChoices(benchmarks)
-            .UseConverter(b => $"{b.Name} [grey]- {b.Description}[/]"));
+            .UseConverter(b => $"{b.Name} [grey]({FormatDuration(GetMaxTimeout(b))}) - {b.Description}[/]"));
 }
 
 if (selectedBenchmarks.Count == 0)
@@ -278,6 +278,23 @@ static Version? ExtractVersion(string output)
 {
     var match = System.Text.RegularExpressions.Regex.Match(output, @"(\d+\.\d+(\.\d+)?)");
     return match.Success && Version.TryParse(match.Groups[1].Value, out var v) ? v : null;
+}
+
+static int GetMaxTimeout(BenchmarkManifest benchmark)
+{
+    var timeouts = new List<int>();
+    if (benchmark.Restore?.Timeout != null) timeouts.Add(benchmark.Restore.Timeout.Value);
+    if (benchmark.Build?.Full?.Timeout != null) timeouts.Add(benchmark.Build.Full.Timeout.Value);
+    if (benchmark.Build?.Incremental?.Timeout != null) timeouts.Add(benchmark.Build.Incremental.Timeout.Value);
+    return timeouts.Count > 0 ? timeouts.Max() : 300; // Default 5 min
+}
+
+static string FormatDuration(int seconds)
+{
+    var ts = TimeSpan.FromSeconds(seconds);
+    if (ts.TotalMinutes < 1) return $"{ts.Seconds}s";
+    if (ts.Seconds == 0) return $"{(int)ts.TotalMinutes}m";
+    return $"{(int)ts.TotalMinutes}m {ts.Seconds}s";
 }
 
 static async Task<string?> CloneExternalRepo(BenchmarkManifest benchmark, string cacheDir, bool verbose)
