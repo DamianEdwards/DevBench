@@ -94,8 +94,8 @@ else
             .PageSize(15)
             .MoreChoicesText("[grey](Move up and down to reveal more benchmarks)[/]")
             .InstructionsText("[grey](Press [blue]<space>[/] to toggle, [green]<enter>[/] to accept)[/]")
-            .AddChoices(benchmarks)
-            .UseConverter(b => $"{b.Name} [grey]({FormatDuration(GetMaxTimeout(b))}) - {b.Description}[/]"));
+            .AddChoices(benchmarks.OrderBy(GetMaxTimeout))
+            .UseConverter(b => $"{b.Name} [grey](up to {FormatDuration(GetMaxTimeout(b))}) - {b.Description}[/]"));
 }
 
 if (selectedBenchmarks.Count == 0)
