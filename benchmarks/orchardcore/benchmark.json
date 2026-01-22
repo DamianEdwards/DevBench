@@ -33,6 +33,6 @@
       "timeout": 60
     }
   },
-  "warmupIterations": 1,
-  "measuredIterations": 3
+  "warmupIterations": 0,
+  "measuredIterations": 1
 }
