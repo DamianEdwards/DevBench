@@ -243,9 +243,13 @@ static bool CheckPrerequisites(BenchmarkManifest benchmark, bool verbose)
     
     foreach (var prereq in benchmark.Prerequisites)
     {
+        var prereqCmd = ResolvePlatformCommand(prereq.Command);
+        if (string.IsNullOrEmpty(prereqCmd))
+            continue; // Skip prerequisites that don't apply to this platform
+            
         try
         {
-            var output = RunCommandSync(prereq.Command, "", TimeSpan.FromSeconds(10), verbose);
+            var output = RunCommandSync(prereqCmd, "", TimeSpan.FromSeconds(10), verbose);
             if (output == null) return false;
             
             if (!string.IsNullOrEmpty(prereq.MinVersion))
@@ -255,7 +259,7 @@ static bool CheckPrerequisites(BenchmarkManifest benchmark, bool verbose)
                 {
                     if (version < minVer)
                     {
-                        AnsiConsole.MarkupLine($"[yellow]{prereq.Command}: {version} < {minVer}[/]");
+                        AnsiConsole.MarkupLine($"[yellow]{prereqCmd}: {version} < {minVer}[/]");
                         return false;
                     }
                 }
@@ -312,13 +316,20 @@ static async Task RunRestoreOnly(BenchmarkManifest benchmark, string workDir, bo
         return;
     }
     
+    var restoreCmd = ResolvePlatformCommand(benchmark.Restore.Command);
+    if (string.IsNullOrEmpty(restoreCmd))
+    {
+        AnsiConsole.MarkupLine("[yellow]  No restore command for this platform[/]");
+        return;
+    }
+    
     AnsiConsole.MarkupLine($"[blue]  Restoring {benchmark.Name}...[/]");
     AnsiConsole.MarkupLine($"[grey]  Working directory: {workDir}[/]");
-    AnsiConsole.MarkupLine($"[grey]  Command: {benchmark.Restore.Command}[/]");
+    AnsiConsole.MarkupLine($"[grey]  Command: {restoreCmd}[/]");
     
     var timeout = TimeSpan.FromSeconds(benchmark.Restore.Timeout ?? 300);
     var sw = Stopwatch.StartNew();
-    var result = await RunCommandAsync(benchmark.Restore.Command, "", workDir, timeout, verbose, envVars);
+    var result = await RunCommandAsync(restoreCmd, "", workDir, timeout, verbose, envVars);
     sw.Stop();
     
     if (result.Success)
@@ -349,18 +360,31 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     // Restore phase
     if (benchmark.Restore != null)
     {
-        AnsiConsole.MarkupLine("[grey]  Restoring dependencies...[/]");
-        var timeout = TimeSpan.FromSeconds(benchmark.Restore.Timeout ?? 300);
-        await RunCommandAsync(benchmark.Restore.Command, "", workDir, timeout, verbose, envVars);
+        var restoreCmd = ResolvePlatformCommand(benchmark.Restore.Command);
+        if (!string.IsNullOrEmpty(restoreCmd))
+        {
+            AnsiConsole.MarkupLine("[grey]  Restoring dependencies...[/]");
+            var timeout = TimeSpan.FromSeconds(benchmark.Restore.Timeout ?? 300);
+            await RunCommandAsync(restoreCmd, "", workDir, timeout, verbose, envVars);
+        }
     }
     
     // Run pre-build steps (e.g., dotnet build-server shutdown)
     if (benchmark.PreBuild != null)
     {
-        foreach (var step in benchmark.PreBuild)
+        foreach (var stepElement in benchmark.PreBuild)
         {
-            if (verbose) AnsiConsole.MarkupLine($"[grey]  Pre-build: {step}[/]");
-            await RunCommandAsync(step, "", workDir, TimeSpan.FromMinutes(1), verbose, envVars);
+            var step = ResolvePlatformCommand(stepElement);
+            if (!string.IsNullOrEmpty(step))
+            {
+                if (verbose) AnsiConsole.MarkupLine($"[grey]  Pre-build: {step}[/]");
+                var preBuildResult = await RunCommandAsync(step, "", workDir, TimeSpan.FromMinutes(5), verbose, envVars);
+                if (!preBuildResult.Success)
+                {
+                    AnsiConsole.MarkupLine($"[red]  Pre-build step failed: {step}[/]");
+                    return result;
+                }
+            }
         }
     }
     
@@ -423,9 +447,10 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
 
 static async Task ClearCache(ClearCacheConfig config, string workDir, bool verbose)
 {
-    if (!string.IsNullOrEmpty(config.Command))
+    var clearCmd = ResolvePlatformCommand(config.Command);
+    if (!string.IsNullOrEmpty(clearCmd))
     {
-        await RunCommandAsync(config.Command, "", workDir, TimeSpan.FromMinutes(2), verbose);
+        await RunCommandAsync(clearCmd, "", workDir, TimeSpan.FromMinutes(2), verbose);
     }
     
     if (config.AdditionalPaths != null)
@@ -444,9 +469,15 @@ static async Task ClearCache(ClearCacheConfig config, string workDir, bool verbo
 static async Task<TimedRun> TimedBuild(BuildCommand cmd, string workDir, bool verbose, 
     Dictionary<string, string>? envVars = null)
 {
+    var buildCmd = ResolvePlatformCommand(cmd.Command);
+    if (string.IsNullOrEmpty(buildCmd))
+    {
+        return new TimedRun { DurationMs = 0, Success = false };
+    }
+    
     var timeout = TimeSpan.FromSeconds(cmd.Timeout ?? 300);
     var sw = Stopwatch.StartNew();
-    var result = await RunCommandAsync(cmd.Command, "", workDir, timeout, verbose, envVars);
+    var result = await RunCommandAsync(buildCmd, "", workDir, timeout, verbose, envVars);
     sw.Stop();
     
     return new TimedRun
@@ -587,6 +618,48 @@ static string GetShellArgs(string command) => RuntimeInformation.IsOSPlatform(OS
     ? $"/c {command}" 
     : $"-c \"{command.Replace("\"", "\\\"")}\"";
 
+static string GetCurrentPlatformKey()
+{
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return "windows";
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return "macos";
+    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return "linux";
+    return "";
+}
+
+static string? ResolvePlatformCommand(JsonElement? commandElement)
+{
+    if (commandElement == null) return null;
+    
+    var element = commandElement.Value;
+    
+    // If it's a string, use it directly
+    if (element.ValueKind == JsonValueKind.String)
+    {
+        return element.GetString();
+    }
+    
+    // If it's an object, look up platform-specific command
+    if (element.ValueKind == JsonValueKind.Object)
+    {
+        var platformKey = GetCurrentPlatformKey();
+        
+        // Try platform-specific key first
+        if (element.TryGetProperty(platformKey, out var platformCommand) && 
+            platformCommand.ValueKind == JsonValueKind.String)
+        {
+            return platformCommand.GetString();
+        }
+        
+        // Fall back to empty string key (default)
+        if (element.TryGetProperty("", out var defaultCommand) && 
+            defaultCommand.ValueKind == JsonValueKind.String)
+        {
+            return defaultCommand.GetString();
+        }
+    }
+    
+    return null;
+}
 static string GetGitUserName()
 {
     try
@@ -1198,7 +1271,7 @@ class BenchmarkManifest
     public List<ToolchainConfig>? Toolchains { get; set; }
     public RestoreConfig? Restore { get; set; }
     public ClearCacheConfig? ClearCache { get; set; }
-    public List<string>? PreBuild { get; set; }
+    public List<JsonElement>? PreBuild { get; set; }
     public BuildConfig? Build { get; set; }
     public int? WarmupIterations { get; set; }
     public int? MeasuredIterations { get; set; }
@@ -1216,19 +1289,19 @@ class ToolchainConfig
 
 class Prerequisite
 {
-    public string Command { get; set; } = "";
+    public JsonElement? Command { get; set; }
     public string? MinVersion { get; set; }
 }
 
 class RestoreConfig
 {
-    public string Command { get; set; } = "";
+    public JsonElement? Command { get; set; }
     public int? Timeout { get; set; }
 }
 
 class ClearCacheConfig
 {
-    public string? Command { get; set; }
+    public JsonElement? Command { get; set; }
     public List<string>? AdditionalPaths { get; set; }
 }
 
@@ -1240,7 +1313,7 @@ class BuildConfig
 
 class BuildCommand
 {
-    public string Command { get; set; } = "";
+    public JsonElement? Command { get; set; }
     public int? Timeout { get; set; }
     public string? TouchFile { get; set; }
 }

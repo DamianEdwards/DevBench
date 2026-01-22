@@ -1,0 +1,34 @@
+{
+  "name": "Large .NET Project (100K files)",
+  "description": "Build a synthetic .NET project with 100,000 generated C# files",
+  "type": "external-repo",
+  "repoUrl": "https://github.com/alexziskind1/machine_tests",
+  "repoRef": "main",
+  "workingDirectory": "./dotnet/LargeProject",
+  "tags": ["dotnet", "large", "synthetic"],
+  "toolchains": [
+    { "stack": "dotnet" }
+  ],
+  "prerequisites": [
+    { "command": "dotnet --version", "minVersion": "9.0" }
+  ],
+  "clearCache": {
+    "additionalPaths": ["bin", "obj", "GeneratedCode"]
+  },
+  "restore": {
+    "command": "dotnet restore LargeProject.csproj",
+    "timeout": 300
+  },
+  "preBuild": [
+    "dotnet build-server shutdown",
+    { "windows": "python generate_code.py", "": "python3 generate_code.py" }
+  ],
+  "build": {
+    "full": {
+      "command": "dotnet build LargeProject.csproj --no-restore",
+      "timeout": 600
+    }
+  },
+  "warmupIterations": 0,
+  "measuredIterations": 1
+}

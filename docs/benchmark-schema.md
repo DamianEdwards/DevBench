@@ -178,6 +178,55 @@ If `touchFile` is specified, it's touched (last modified time updated) before th
 
 Key-value pairs of environment variables to set during benchmark execution.
 
+## Platform-Specific Commands
+
+Commands in `restore.command`, `clearCache.command`, `build.full.command`, `build.incremental.command`, and `preBuild` array elements can be either:
+
+1. **A simple string** - used on all platforms:
+   ```json
+   "command": "dotnet build"
+   ```
+
+2. **An object with platform keys** - for platform-specific commands:
+   ```json
+   "command": {
+     "windows": "python generate_code.py",
+     "linux": "python3 generate_code.py",
+     "macos": "python3 generate_code.py",
+     "": "python3 generate_code.py"
+   }
+   ```
+
+### Platform Keys
+
+| Key | Platform |
+|-----|----------|
+| `"windows"` | Windows only |
+| `"linux"` | Linux only |
+| `"macos"` | macOS only |
+| `""` (empty string) | Fallback/default if no platform-specific key matches |
+
+### Resolution Logic
+
+1. If the command is a string, it's used on all platforms
+2. If the command is an object:
+   - Look for the current platform key (`windows`, `linux`, or `macos`)
+   - If not found, use the `""` (empty string) key as fallback
+   - If no match, the command is skipped
+
+### Example: Platform-specific preBuild
+
+```json
+{
+  "preBuild": [
+    "dotnet build-server shutdown",
+    { "windows": "python generate_code.py", "": "python3 generate_code.py" }
+  ]
+}
+```
+
+This runs `dotnet build-server shutdown` on all platforms, then runs `python generate_code.py` on Windows or `python3 generate_code.py` on Linux/macOS.
+
 ## Benchmark Types
 
 ### In-Repo Benchmark
