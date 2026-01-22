@@ -1,0 +1,69 @@
+{
+  "submissionId": "8f4961f5-91e5-4dd9-bc21-74678f2a521e",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-01-22T06:28:38.1214082Z",
+  "machine": {
+    "os": {
+      "platform": "Windows",
+      "version": "Microsoft Windows NT 10.0.26200.0",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+      "cores": 32
+    },
+    "memory": {
+      "capacityGB": 123.54937362670898,
+      "speedMHz": 6000,
+      "partNumber": "F5-6000J3444F64G",
+      "dimmCount": 2,
+      "formFactor": "DIMM"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "ReFS",
+      "manufacturer": "Samsung",
+      "model": "Samsung SSD 9100 PRO 2TB",
+      "busType": "NVMe",
+      "isDevDrive": true,
+      "freeSpaceGB": 568.6567764282227
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.102"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "WindowsBuild": 26200
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "OrchardCore",
+      "coldRun": {
+        "durationMs": 21580,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 8972,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 8972,
+        "maxMs": 8972,
+        "meanMs": 8972,
+        "medianMs": 8972,
+        "stdDevMs": 0
+      },
+      "incrementalBuild": {
+        "durationMs": 7528,
+        "success": true
+      }
+    }
+  ]
+}

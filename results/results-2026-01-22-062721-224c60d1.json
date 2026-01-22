@@ -1,0 +1,85 @@
+{
+  "submissionId": "224c60d1-2268-4329-91e4-b1733ae0001c",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-01-22T06:27:21.7956937Z",
+  "machine": {
+    "os": {
+      "platform": "Windows",
+      "version": "Microsoft Windows NT 10.0.26200.0",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+      "cores": 32
+    },
+    "memory": {
+      "capacityGB": 123.54937362670898,
+      "speedMHz": 6000,
+      "partNumber": "F5-6000J3444F64G",
+      "dimmCount": 2,
+      "formFactor": "DIMM"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "ReFS",
+      "manufacturer": "Samsung",
+      "model": "Samsung SSD 9100 PRO 2TB",
+      "busType": "NVMe",
+      "isDevDrive": true,
+      "freeSpaceGB": 568.6579742431641
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.102"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "WindowsBuild": 26200
+    }
+  },
+  "benchmarks": [
+    {
+      "name": ".NET Hello World",
+      "coldRun": {
+        "durationMs": 1624,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 382,
+          "success": true
+        },
+        {
+          "durationMs": 389,
+          "success": true
+        },
+        {
+          "durationMs": 386,
+          "success": true
+        },
+        {
+          "durationMs": 384,
+          "success": true
+        },
+        {
+          "durationMs": 384,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 382,
+        "maxMs": 389,
+        "meanMs": 385,
+        "medianMs": 384,
+        "stdDevMs": 2.3664319132398464
+      },
+      "incrementalBuild": {
+        "durationMs": 433,
+        "success": true
+      }
+    }
+  ]
+}

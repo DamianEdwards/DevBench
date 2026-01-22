@@ -65,7 +65,7 @@ layout: layout.njk
                 data-submitter="{{ result.submitter }}"
                 data-cold="{{ benchmark.coldRun.durationMs if benchmark.coldRun else 999999 }}"
                 data-warm="{{ benchmark.warmRunStats.medianMs if benchmark.warmRunStats else 999999 }}"
-                data-href="/results/{{ result.submissionId }}/"
+                data-href="results/{{ result.submissionId }}/"
                 onclick="window.location.href=this.dataset.href">
               <td class="px-4 py-3 text-sm text-gray-900">{{ result.submitter }}</td>
               <td class="px-4 py-3 text-sm text-gray-500">{{ result.timestamp | formatDate }}</td>
