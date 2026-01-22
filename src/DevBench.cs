@@ -29,16 +29,11 @@ var restoreOnly = args.Contains("--restore-only");
 var specificBenchmark = GetArgValue(args, "--benchmark") ?? GetArgValue(args, "-b");
 var benchmarksPathArg = GetArgValue(args, "--benchmarks-path");
 
-// Collect system info first
-if (!restoreOnly)
-{
-    AnsiConsole.MarkupLine("[blue]Collecting system information...[/]");
-}
-var systemInfo = CollectSystemInfo();
-
 if (systemInfoOnly)
 {
-    Console.WriteLine(JsonSerializer.Serialize(systemInfo, DevBenchJsonContext.Default.SystemInfo));
+    AnsiConsole.MarkupLine("[blue]Collecting system information...[/]");
+    var sysInfo = CollectSystemInfo();
+    Console.WriteLine(JsonSerializer.Serialize(sysInfo, DevBenchJsonContext.Default.SystemInfo));
     return 0;
 }
 
@@ -103,6 +98,13 @@ if (selectedBenchmarks.Count == 0)
     AnsiConsole.MarkupLine("[yellow]No benchmarks selected[/]");
     return 0;
 }
+
+// Collect system info after selection
+if (!restoreOnly)
+{
+    AnsiConsole.MarkupLine("[blue]Collecting system information...[/]");
+}
+var systemInfo = CollectSystemInfo();
 
 // Collect toolchains from all selected benchmarks
 var allToolchainConfigs = selectedBenchmarks
