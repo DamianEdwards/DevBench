@@ -1,3 +1,8 @@
+---
+name: debug-benchmark
+description: Guide for diagnosing and fixing benchmark failures. Use this when a benchmark is failing, not appearing, or timing out.
+---
+
 # Debug a Benchmark
 
 This skill helps diagnose and fix benchmark failures.

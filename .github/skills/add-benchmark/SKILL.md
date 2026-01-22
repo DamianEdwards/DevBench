@@ -1,3 +1,8 @@
+---
+name: add-benchmark
+description: Guide for adding a new benchmark to DevBench. Use this when asked to add, create, or set up a new benchmark.
+---
+
 # Add a New Benchmark
 
 This skill guides you through adding a new benchmark to DevBench.
@@ -106,4 +111,4 @@ dotnet run src/DevBench.cs
 
 ## Schema Reference
 
-See [docs/benchmark-schema.md](../../docs/benchmark-schema.md) for full schema documentation.
+See [docs/benchmark-schema.md](../../../docs/benchmark-schema.md) for full schema documentation.

@@ -1,3 +1,8 @@
+---
+name: add-system-info
+description: Guide for adding new system information collection to DevBench. Use this when asked to collect new hardware or OS details.
+---
+
 # Add System Information Collection
 
 This skill guides you through adding new system information to DevBench.

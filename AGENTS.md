@@ -4,13 +4,13 @@ DevBench is a developer PC benchmarking tool focused on measuring build performa
 
 ## Available Skills
 
-The following skills provide detailed guidance for common tasks. Reference them when needed:
+The following skills provide detailed guidance for common tasks. They are automatically used by Copilot when relevant:
 
 | Skill | When to Use |
 |-------|-------------|
-| `.github/skills/add-benchmark.md` | Adding a new benchmark to DevBench |
-| `.github/skills/add-system-info.md` | Adding new system information collection |
-| `.github/skills/debug-benchmark.md` | Diagnosing and fixing benchmark failures |
+| `add-benchmark` | Adding a new benchmark to DevBench |
+| `add-system-info` | Adding new system information collection |
+| `debug-benchmark` | Diagnosing and fixing benchmark failures |
 
 ## Key Files
 
