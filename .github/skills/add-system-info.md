@@ -1,6 +1,6 @@
 # Add System Information Collection
 
-This prompt guides you through adding new system information to DevBench.
+This skill guides you through adding new system information to DevBench.
 
 ## Overview
 
@@ -44,6 +44,7 @@ static string GetNewProperty()
 ## Common Techniques
 
 ### Run a command and parse output
+
 ```csharp
 static string RunCommand(string command, string args)
 {
@@ -59,6 +60,7 @@ static string RunCommand(string command, string args)
 ```
 
 ### Windows: Query WMI
+
 ```csharp
 #if WINDOWS
 static string GetWmiValue(string className, string propertyName)
@@ -72,6 +74,7 @@ static string GetWmiValue(string className, string propertyName)
 ```
 
 ### macOS: Use system_profiler
+
 ```csharp
 #if MACOS
 static string GetMacSystemInfo(string dataType)
@@ -82,6 +85,7 @@ static string GetMacSystemInfo(string dataType)
 ```
 
 ### Linux: Read from /proc or /sys
+
 ```csharp
 #if LINUX
 static string ReadProcFile(string path)

@@ -1,6 +1,6 @@
 # Add a New Benchmark
 
-This prompt guides you through adding a new benchmark to DevBench.
+This skill guides you through adding a new benchmark to DevBench.
 
 ## Information Needed
 
@@ -64,7 +64,7 @@ Use this template:
 - Always use `--no-restore` in build commands. The restore phase runs separately and is not timed.
 - Always include `"preBuild": ["dotnet build-server shutdown"]` to ensure build servers are stopped before timing. This ensures cold builds are truly cold.
 
-### For external-repo benchmarks:
+### For external-repo benchmarks
 
 ```json
 {
@@ -106,4 +106,4 @@ dotnet run src/DevBench.cs
 
 ## Schema Reference
 
-See [docs/benchmark-schema.md](../docs/benchmark-schema.md) for full schema documentation.
+See [docs/benchmark-schema.md](../../docs/benchmark-schema.md) for full schema documentation.

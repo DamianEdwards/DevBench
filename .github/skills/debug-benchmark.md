@@ -1,6 +1,6 @@
 # Debug a Benchmark
 
-This prompt helps diagnose and fix benchmark failures.
+This skill helps diagnose and fix benchmark failures.
 
 ## Common Issues
 
