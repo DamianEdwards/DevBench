@@ -135,7 +135,7 @@ function Build-LocalHarness {
     Push-Location $PSScriptRoot
     try {
         # Build and get the target path
-        $buildOutput = & dotnet build $srcFile -getProperty:TargetPath 2>&1
+        $buildOutput = & dotnet build $srcFile -t:Build -getProperty:TargetPath 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Build failed:" -ForegroundColor Red
             Write-Host $buildOutput -ForegroundColor Red
