@@ -159,7 +159,7 @@ build_local_harness() {
     
     # Build and capture target path
     local build_output
-    build_output=$(dotnet build "$SRC_FILE" -getProperty:TargetPath 2>&1)
+    build_output=$(dotnet build "$SRC_FILE" -target:Build -getProperty:TargetPath 2>&1)
     local build_exit_code=$?
     
     if [ $build_exit_code -ne 0 ]; then
