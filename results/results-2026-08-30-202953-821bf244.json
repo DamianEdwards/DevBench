@@ -1,0 +1,71 @@
+{
+  "submissionId": "821bf244-1445-4a67-bc10-c839382fc086",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-08-30T20:29:53.3679159Z",
+  "machine": {
+    "os": {
+      "platform": "Windows",
+      "version": "Microsoft Windows NT 10.0.26200.0",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) Ultra X9 388H",
+      "cores": 16
+    },
+    "memory": {
+      "capacityGB": 63.48488998413086,
+      "speedMHz": 8533,
+      "manufacturer": "Micron Technology",
+      "partNumber": "MTD32C20326N8FN023F1 YF",
+      "dimmCount": 1,
+      "formFactor": "0"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "ReFS",
+      "manufacturer": "Samsung",
+      "model": "Samsung SSD 990 EVO Plus 2TB",
+      "busType": "NVMe",
+      "isDevDrive": true,
+      "freeSpaceGB": 661.7629547119141
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "WindowsBuild": 26200
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "OrchardCore",
+      "coldRun": {
+        "durationMs": 76111,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 13874,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 13874,
+        "maxMs": 13874,
+        "meanMs": 13874,
+        "medianMs": 13874,
+        "stdDevMs": 0
+      },
+      "incrementalBuild": {
+        "durationMs": 11660,
+        "success": true
+      }
+    }
+  ]
+}
