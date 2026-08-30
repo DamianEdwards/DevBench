@@ -1,0 +1,64 @@
+{
+  "submissionId": "8defbb00-2c20-40d2-8387-917e749ff23b",
+  "submitter": "anonymous",
+  "timestamp": "2026-08-30T23:25:05.6567860Z",
+  "machine": {
+    "os": {
+      "platform": "macOS",
+      "version": "Unix 26.6.2",
+      "architecture": "Arm64"
+    },
+    "cpu": {
+      "model": "Apple M5 Max",
+      "cores": 18
+    },
+    "memory": {
+      "capacityGB": 64,
+      "formFactor": "LPDDR5"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "APFS",
+      "manufacturer": "APPLE",
+      "model": "APPLE SSD AP2048Z",
+      "busType": "Apple",
+      "isDevDrive": false,
+      "freeSpaceGB": 1758.085636138916
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "IsAppleSilicon": true,
+      "ChipModel": "Apple M5 Max"
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "Large .NET Project (100K files)",
+      "coldRun": {
+        "durationMs": 114912,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 14050,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 14050,
+        "maxMs": 14050,
+        "meanMs": 14050,
+        "medianMs": 14050,
+        "stdDevMs": 0
+      }
+    }
+  ]
+}

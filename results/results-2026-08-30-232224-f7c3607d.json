@@ -1,0 +1,68 @@
+{
+  "submissionId": "f7c3607d-dee5-4a4b-8c19-d84b9a467e03",
+  "submitter": "anonymous",
+  "timestamp": "2026-08-30T23:22:24.4170990Z",
+  "machine": {
+    "os": {
+      "platform": "macOS",
+      "version": "Unix 26.6.2",
+      "architecture": "Arm64"
+    },
+    "cpu": {
+      "model": "Apple M5 Max",
+      "cores": 18
+    },
+    "memory": {
+      "capacityGB": 64,
+      "formFactor": "LPDDR5"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "APFS",
+      "manufacturer": "APPLE",
+      "model": "APPLE SSD AP2048Z",
+      "busType": "Apple",
+      "isDevDrive": false,
+      "freeSpaceGB": 1761.3070259094238
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "IsAppleSilicon": true,
+      "ChipModel": "Apple M5 Max"
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "OrchardCore",
+      "coldRun": {
+        "durationMs": 69520,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 17345,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 17345,
+        "maxMs": 17345,
+        "meanMs": 17345,
+        "medianMs": 17345,
+        "stdDevMs": 0
+      },
+      "incrementalBuild": {
+        "durationMs": 16710,
+        "success": true
+      }
+    }
+  ]
+}
