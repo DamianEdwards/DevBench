@@ -169,7 +169,7 @@ build_local_harness() {
     fi
     
     # The last line should be the target path
-    ASSEMBLY_PATH=$(echo "$build_output" | tail -1 | tr -d '[:space:]')
+    ASSEMBLY_PATH=$(printf '%s\n' "$build_output" | tail -1 | tr -d '\r')
     
     if [ ! -f "$ASSEMBLY_PATH" ]; then
         echo "Error: Built assembly not found at $ASSEMBLY_PATH"
