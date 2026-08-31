@@ -32,6 +32,10 @@ This document describes the `benchmark.json` manifest format used to define benc
     "dotnet build-server shutdown"
   ],
   "build": {
+    "clean": {
+      "command": "dotnet clean -c Release",
+      "timeout": 300
+    },
     "full": {
       "command": "dotnet build -c Release --no-restore",
       "timeout": 300
@@ -56,7 +60,8 @@ This document describes the `benchmark.json` manifest format used to define benc
 | `name` | string | Display name for the benchmark |
 | `description` | string | What the benchmark measures |
 | `type` | string | `"in-repo"` or `"external-repo"` |
-| `build.full` | object | Full/clean build configuration |
+| `build.clean` | object | Command that removes build outputs before each warm build |
+| `build.full` | object | Timed full-build command |
 
 ### Optional Fields
 
@@ -139,6 +144,24 @@ Array of commands to run before the cold build starts. Not timed. Use this for:
 
 **For .NET benchmarks:** Always include `"dotnet build-server shutdown"` to ensure cold builds are truly cold.
 
+### `build.clean`
+
+```json
+{
+  "command": "dotnet clean -c Release",
+  "timeout": 300
+}
+```
+
+- `command`: Command to remove build outputs
+- `timeout`: Maximum seconds to wait (default: 300)
+
+Runs untimed before every warmup and measured warm build. It does not run before the
+incremental build, which uses the output from the final warm build. The command should
+preserve restored dependencies and generated inputs, and must not shut down build
+servers. For .NET benchmarks, use `dotnet clean` with the same configuration and target
+as `build.full`.
+
 ### `build.full`
 
 ```json
@@ -180,7 +203,7 @@ Key-value pairs of environment variables to set during benchmark execution.
 
 ## Platform-Specific Commands
 
-Commands in `restore.command`, `clearCache.command`, `build.full.command`, `build.incremental.command`, and `preBuild` array elements can be either:
+Commands in `restore.command`, `clearCache.command`, `build.clean.command`, `build.full.command`, `build.incremental.command`, and `preBuild` array elements can be either:
 
 1. **A simple string** - used on all platforms:
    ```json
@@ -247,6 +270,7 @@ benchmarks/
   "name": "My Benchmark",
   "type": "in-repo",
   "build": {
+    "clean": { "command": "dotnet clean src/my-benchmark.csproj" },
     "full": { "command": "dotnet build src/my-benchmark.csproj" }
   }
 }
@@ -264,6 +288,7 @@ For benchmarks that clone another repository:
   "repoRef": "v1.0.0",
   "workingDirectory": "./src/App",
   "build": {
+    "clean": { "command": "dotnet clean" },
     "full": { "command": "dotnet build" }
   }
 }

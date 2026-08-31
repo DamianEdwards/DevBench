@@ -1,7 +1,7 @@
 {
-  "submissionId": "93f0d29d-f4b4-4829-9d4e-34bef2dae4a4",
+  "submissionId": "84d645d4-8628-49dd-b427-f11b05d9b63f",
   "submitter": "Damian Edwards",
-  "timestamp": "2026-08-30T20:25:08.7300009Z",
+  "timestamp": "2026-08-31T00:47:51.9511246Z",
   "machine": {
     "os": {
       "platform": "Windows",
@@ -27,7 +27,7 @@
       "model": "Samsung SSD 990 EVO Plus 2TB",
       "busType": "NVMe",
       "isDevDrive": true,
-      "freeSpaceGB": 657.1188163757324
+      "freeSpaceGB": 661.1831932067871
     },
     "toolchains": [
       {
@@ -44,23 +44,43 @@
   },
   "benchmarks": [
     {
-      "name": "Large .NET Project (100K files)",
+      "name": ".NET Hello World",
       "coldRun": {
-        "durationMs": 95950,
+        "durationMs": 2494,
         "success": true
       },
       "warmRuns": [
         {
-          "durationMs": 12210,
+          "durationMs": 380,
+          "success": true
+        },
+        {
+          "durationMs": 345,
+          "success": true
+        },
+        {
+          "durationMs": 342,
+          "success": true
+        },
+        {
+          "durationMs": 345,
+          "success": true
+        },
+        {
+          "durationMs": 371,
           "success": true
         }
       ],
       "warmRunStats": {
-        "minMs": 12210,
-        "maxMs": 12210,
-        "meanMs": 12210,
-        "medianMs": 12210,
-        "stdDevMs": 0
+        "minMs": 342,
+        "maxMs": 380,
+        "meanMs": 356.6,
+        "medianMs": 345,
+        "stdDevMs": 15.730225681788548
+      },
+      "incrementalBuild": {
+        "durationMs": 328,
+        "success": true
       }
     }
   ]

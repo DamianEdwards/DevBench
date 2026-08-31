@@ -24,6 +24,10 @@
     { "windows": "python generate_code.py", "": "python3 generate_code.py" }
   ],
   "build": {
+    "clean": {
+      "command": "dotnet clean LargeProject.csproj",
+      "timeout": 600
+    },
     "full": {
       "command": "dotnet build LargeProject.csproj --no-restore",
       "timeout": 600

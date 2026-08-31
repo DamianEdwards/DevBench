@@ -23,6 +23,10 @@
     "dotnet build-server shutdown"
   ],
   "build": {
+    "clean": {
+      "command": "dotnet clean",
+      "timeout": 120
+    },
     "full": {
       "command": "dotnet build --no-restore",
       "timeout": 120
