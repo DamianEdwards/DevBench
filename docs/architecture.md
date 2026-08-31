@@ -93,11 +93,13 @@ sequenceDiagram
     loop Each Benchmark
         Harness->>Benchmark: Read benchmark.json
         Harness->>Harness: Check prerequisites
-        Harness->>Benchmark: Run restore
         Harness->>Benchmark: Clear cache
+        Harness->>Benchmark: Run restore
+        Harness->>Benchmark: Run pre-build steps
         Harness->>Benchmark: Cold build (timed)
         loop Warm iterations
-            Harness->>Benchmark: Warm build (timed)
+            Harness->>Benchmark: Clean build outputs (untimed)
+            Harness->>Benchmark: Warm full build (timed)
         end
         opt Incremental
             Harness->>Benchmark: Touch file
@@ -115,11 +117,12 @@ Each benchmark goes through these phases:
 
 1. **Prerequisites Check** - Verify required tools installed
 2. **Clone** (external repos only) - Shallow clone to `.cache/`
-3. **Restore** - Download dependencies (not timed)
-4. **Cache Clear** - Clean build artifacts
-5. **Cold Build** - First build, timed
-6. **Warm Builds** - Multiple iterations, timed
-7. **Incremental Build** - Touch file, rebuild, timed
+3. **Cache Clear** - Clean build artifacts
+4. **Restore** - Download dependencies (not timed)
+5. **Pre-Build** - Prepare cold state, including shutting down build servers
+6. **Cold Build** - First build, timed
+7. **Warm Builds** - Clean build outputs, then run a timed full build with warm build servers
+8. **Incremental Build** - Touch file, rebuild without cleaning, timed
 
 ## Extension Points
 

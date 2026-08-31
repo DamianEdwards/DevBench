@@ -286,6 +286,7 @@ static int GetMaxTimeout(BenchmarkManifest benchmark)
 {
     var timeouts = new List<int>();
     if (benchmark.Restore?.Timeout != null) timeouts.Add(benchmark.Restore.Timeout.Value);
+    if (benchmark.Build?.Clean?.Timeout != null) timeouts.Add(benchmark.Build.Clean.Timeout.Value);
     if (benchmark.Build?.Full?.Timeout != null) timeouts.Add(benchmark.Build.Full.Timeout.Value);
     if (benchmark.Build?.Incremental?.Timeout != null) timeouts.Add(benchmark.Build.Incremental.Timeout.Value);
     return timeouts.Count > 0 ? timeouts.Max() : 300; // Default 5 min
@@ -415,30 +416,48 @@ static async Task<BenchmarkResult> RunBenchmark(BenchmarkManifest benchmark, str
     }
     
     var buildFull = benchmark.Build.Full;
-    
+    var buildClean = benchmark.Build.Clean;
+    var warmupIterations = benchmark.WarmupIterations ?? 2;
+    var measuredIterations = benchmark.MeasuredIterations ?? 5;
+    if ((warmupIterations > 0 || measuredIterations > 0) && buildClean == null)
+    {
+        AnsiConsole.MarkupLine("[red]  Error: No build.clean command defined for warm builds[/]");
+        return result;
+    }
+
     // Cold build
     AnsiConsole.MarkupLine("[grey]  Running cold build...[/]");
     var coldResult = await TimedBuild(buildFull, workDir, verbose, envVars);
     result.ColdRun = coldResult;
-    
+
     // Warm builds
-    var warmIterations = benchmark.WarmupIterations ?? 2;
-    var measuredIterations = benchmark.MeasuredIterations ?? 5;
-    
-    // Warmup (not measured)
-    for (int i = 0; i < warmIterations; i++)
-    {
-        AnsiConsole.MarkupLine($"[grey]  Warmup {i + 1}/{warmIterations}...[/]");
-        await TimedBuild(buildFull, workDir, verbose, envVars);
-    }
-    
-    // Measured warm runs
     var warmRuns = new List<TimedRun>();
-    for (int i = 0; i < measuredIterations; i++)
+    if (buildClean != null)
     {
-        AnsiConsole.MarkupLine($"[grey]  Measured run {i + 1}/{measuredIterations}...[/]");
-        var run = await TimedBuild(buildFull, workDir, verbose, envVars);
-        warmRuns.Add(run);
+        // Warmup (not measured)
+        for (int i = 0; i < warmupIterations; i++)
+        {
+            AnsiConsole.MarkupLine($"[grey]  Warmup {i + 1}/{warmupIterations}...[/]");
+            if (!await CleanBuild(buildClean, workDir, verbose, envVars))
+            {
+                AnsiConsole.MarkupLine("[red]  Warm build clean failed; stopping benchmark[/]");
+                return result;
+            }
+            await TimedBuild(buildFull, workDir, verbose, envVars);
+        }
+
+        // Measured warm runs
+        for (int i = 0; i < measuredIterations; i++)
+        {
+            AnsiConsole.MarkupLine($"[grey]  Measured run {i + 1}/{measuredIterations}...[/]");
+            if (!await CleanBuild(buildClean, workDir, verbose, envVars))
+            {
+                AnsiConsole.MarkupLine("[red]  Warm build clean failed; stopping benchmark[/]");
+                return result;
+            }
+            var run = await TimedBuild(buildFull, workDir, verbose, envVars);
+            warmRuns.Add(run);
+        }
     }
     result.WarmRuns = warmRuns;
     result.WarmRunStats = CalculateStats(warmRuns);
@@ -504,6 +523,20 @@ static async Task<TimedRun> TimedBuild(BuildCommand cmd, string workDir, bool ve
         DurationMs = sw.ElapsedMilliseconds,
         Success = result.Success
     };
+}
+
+static async Task<bool> CleanBuild(BuildCommand cmd, string workDir, bool verbose,
+    Dictionary<string, string>? envVars = null)
+{
+    var cleanCmd = ResolvePlatformCommand(cmd.Command);
+    if (string.IsNullOrEmpty(cleanCmd))
+    {
+        return false;
+    }
+
+    var timeout = TimeSpan.FromSeconds(cmd.Timeout ?? 300);
+    var result = await RunCommandAsync(cleanCmd, "", workDir, timeout, verbose, envVars);
+    return result.Success;
 }
 
 static RunStats CalculateStats(List<TimedRun> runs)
@@ -1326,6 +1359,7 @@ class ClearCacheConfig
 
 class BuildConfig
 {
+    public BuildCommand? Clean { get; set; }
     public BuildCommand? Full { get; set; }
     public BuildCommand? Incremental { get; set; }
 }

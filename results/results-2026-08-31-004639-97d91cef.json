@@ -1,7 +1,7 @@
 {
-  "submissionId": "8f4961f5-91e5-4dd9-bc21-74678f2a521e",
+  "submissionId": "97d91cef-7b87-446b-a142-41b228a595dc",
   "submitter": "Damian Edwards",
-  "timestamp": "2026-01-22T06:28:38.1214082Z",
+  "timestamp": "2026-08-31T00:46:39.5975662Z",
   "machine": {
     "os": {
       "platform": "Windows",
@@ -9,30 +9,32 @@
       "architecture": "X64"
     },
     "cpu": {
-      "model": "AMD Ryzen 9 9950X3D 16-Core Processor",
-      "cores": 32
+      "model": "Intel(R) Core(TM) Ultra X9 388H",
+      "cores": 16
     },
     "memory": {
-      "capacityGB": 123.54937362670898,
-      "speedMHz": 6000,
-      "partNumber": "F5-6000J3444F64G",
-      "dimmCount": 2,
-      "formFactor": "DIMM"
+      "capacityGB": 63.48488998413086,
+      "speedMHz": 8533,
+      "manufacturer": "Micron Technology",
+      "partNumber": "MTD32C20326N8FN023F1 YF",
+      "dimmCount": 1,
+      "formFactor": "0"
     },
     "storage": {
       "type": "SSD",
       "fileSystem": "ReFS",
       "manufacturer": "Samsung",
-      "model": "Samsung SSD 9100 PRO 2TB",
+      "model": "Samsung SSD 990 EVO Plus 2TB",
       "busType": "NVMe",
       "isDevDrive": true,
-      "freeSpaceGB": 568.6567764282227
+      "freeSpaceGB": 661.8272171020508
     },
     "toolchains": [
       {
         "name": ".NET SDK",
         "versions": [
-          "10.0.102"
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
         ]
       }
     ],
@@ -44,24 +46,24 @@
     {
       "name": "OrchardCore",
       "coldRun": {
-        "durationMs": 21580,
+        "durationMs": 64101,
         "success": true
       },
       "warmRuns": [
         {
-          "durationMs": 8972,
+          "durationMs": 31853,
           "success": true
         }
       ],
       "warmRunStats": {
-        "minMs": 8972,
-        "maxMs": 8972,
-        "meanMs": 8972,
-        "medianMs": 8972,
+        "minMs": 31853,
+        "maxMs": 31853,
+        "meanMs": 31853,
+        "medianMs": 31853,
         "stdDevMs": 0
       },
       "incrementalBuild": {
-        "durationMs": 7528,
+        "durationMs": 11037,
         "success": true
       }
     }

@@ -50,6 +50,10 @@ Use this template:
     "dotnet build-server shutdown"
   ],
   "build": {
+    "clean": {
+      "command": "dotnet clean -c Release",
+      "timeout": 300
+    },
     "full": {
       "command": "dotnet build -c Release --no-restore",
       "timeout": 300
@@ -66,6 +70,7 @@ Use this template:
 ```
 
 **Important for .NET benchmarks:**
+- Define `build.clean` using `dotnet clean` with the same target and configuration as `build.full`.
 - Always use `--no-restore` in build commands. The restore phase runs separately and is not timed.
 - Always include `"preBuild": ["dotnet build-server shutdown"]` to ensure build servers are stopped before timing. This ensures cold builds are truly cold.
 

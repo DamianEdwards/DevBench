@@ -25,7 +25,7 @@ The interactive menu will guide you through selecting which benchmarks to run.
 DevBench measures build performance across different scenarios:
 
 - **Cold builds** - First build after clearing caches
-- **Warm builds** - Subsequent builds with warm caches  
+- **Warm builds** - Full rebuilds after cleaning outputs, with build servers and caches warm
 - **Incremental builds** - Rebuilding after a small code change
 
 Results capture detailed system information so you can compare performance across different hardware and configurations.

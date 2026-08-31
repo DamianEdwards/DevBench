@@ -1,7 +1,7 @@
 {
-  "submissionId": "cb8d481d-a91f-4eed-9f7f-4f24a7f746a7",
+  "submissionId": "a82e81d3-c4f4-46c4-b3fb-e4cddb7c291a",
   "submitter": "Damian Edwards",
-  "timestamp": "2026-08-30T23:12:44.5564386Z",
+  "timestamp": "2026-08-31T00:59:25.8772238Z",
   "machine": {
     "os": {
       "platform": "Linux",
@@ -22,7 +22,7 @@
       "model": "Virtual",
       "busType": "DISK",
       "isDevDrive": false,
-      "freeSpaceGB": 907.0554046630859
+      "freeSpaceGB": 903.0233764648438
     },
     "toolchains": [
       {
@@ -40,23 +40,43 @@
   },
   "benchmarks": [
     {
-      "name": "Large .NET Project (100K files)",
+      "name": ".NET Hello World",
       "coldRun": {
-        "durationMs": 73453,
+        "durationMs": 1519,
         "success": true
       },
       "warmRuns": [
         {
-          "durationMs": 6861,
+          "durationMs": 284,
+          "success": true
+        },
+        {
+          "durationMs": 395,
+          "success": true
+        },
+        {
+          "durationMs": 275,
+          "success": true
+        },
+        {
+          "durationMs": 259,
+          "success": true
+        },
+        {
+          "durationMs": 274,
           "success": true
         }
       ],
       "warmRunStats": {
-        "minMs": 6861,
-        "maxMs": 6861,
-        "meanMs": 6861,
-        "medianMs": 6861,
-        "stdDevMs": 0
+        "minMs": 259,
+        "maxMs": 395,
+        "meanMs": 297.4,
+        "medianMs": 275,
+        "stdDevMs": 49.4554344839877
+      },
+      "incrementalBuild": {
+        "durationMs": 262,
+        "success": true
       }
     }
   ]

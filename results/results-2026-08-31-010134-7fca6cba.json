@@ -1,7 +1,7 @@
 {
-  "submissionId": "8e23e14d-8ddd-436e-82ae-7eb86e913112",
+  "submissionId": "7fca6cba-4172-43ba-a27e-39395a61847b",
   "submitter": "Damian Edwards",
-  "timestamp": "2026-08-30T23:18:50.7210344Z",
+  "timestamp": "2026-08-31T01:01:34.6389286Z",
   "machine": {
     "os": {
       "platform": "Linux",
@@ -22,7 +22,7 @@
       "model": "Virtual",
       "busType": "DISK",
       "isDevDrive": false,
-      "freeSpaceGB": 907.0554466247559
+      "freeSpaceGB": 903.022647857666
     },
     "toolchains": [
       {
@@ -42,24 +42,24 @@
     {
       "name": "OrchardCore",
       "coldRun": {
-        "durationMs": 55040,
+        "durationMs": 61003,
         "success": true
       },
       "warmRuns": [
         {
-          "durationMs": 9550,
+          "durationMs": 35922,
           "success": true
         }
       ],
       "warmRunStats": {
-        "minMs": 9550,
-        "maxMs": 9550,
-        "meanMs": 9550,
-        "medianMs": 9550,
+        "minMs": 35922,
+        "maxMs": 35922,
+        "meanMs": 35922,
+        "medianMs": 35922,
         "stdDevMs": 0
       },
       "incrementalBuild": {
-        "durationMs": 8258,
+        "durationMs": 7540,
         "success": true
       }
     }

@@ -14,7 +14,7 @@ This skill helps diagnose and fix benchmark failures.
 **Check:**
 - `benchmarks/<name>/benchmark.json` exists
 - JSON is valid (no syntax errors)
-- Required fields present: `name`, `description`, `type`, `build.full`
+- Required fields present: `name`, `description`, `type`, `build.clean`, `build.full`
 
 **Test JSON validity:**
 ```powershell
@@ -88,6 +88,10 @@ git clone --depth 1 --branch <repoRef> <repoUrl> .cache/test-clone
 **Fix:** Increase timeout in benchmark.json:
 ```json
 "build": {
+  "clean": {
+    "command": "dotnet clean",
+    "timeout": 600
+  },
   "full": {
     "command": "dotnet build",
     "timeout": 600  // Increase from 300
