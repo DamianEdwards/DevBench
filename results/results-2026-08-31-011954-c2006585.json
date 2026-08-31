@@ -1,0 +1,128 @@
+{
+  "submissionId": "c2006585-0ed8-4932-a654-7d6a41a45903",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-08-31T01:19:54.1601390Z",
+  "machine": {
+    "os": {
+      "platform": "macOS",
+      "version": "Unix 26.6.2",
+      "architecture": "Arm64"
+    },
+    "cpu": {
+      "model": "Apple M5 Max",
+      "cores": 18
+    },
+    "memory": {
+      "capacityGB": 64,
+      "formFactor": "LPDDR5"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "APFS",
+      "manufacturer": "APPLE",
+      "model": "APPLE SSD AP2048Z",
+      "busType": "Apple",
+      "isDevDrive": false,
+      "freeSpaceGB": 1758.023250579834
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "IsAppleSilicon": true,
+      "ChipModel": "Apple M5 Max"
+    }
+  },
+  "benchmarks": [
+    {
+      "name": ".NET Hello World",
+      "coldRun": {
+        "durationMs": 1209,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 216,
+          "success": true
+        },
+        {
+          "durationMs": 219,
+          "success": true
+        },
+        {
+          "durationMs": 212,
+          "success": true
+        },
+        {
+          "durationMs": 211,
+          "success": true
+        },
+        {
+          "durationMs": 209,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 209,
+        "maxMs": 219,
+        "meanMs": 213.4,
+        "medianMs": 212,
+        "stdDevMs": 3.6110940170535573
+      },
+      "incrementalBuild": {
+        "durationMs": 205,
+        "success": true
+      }
+    },
+    {
+      "name": "OrchardCore",
+      "coldRun": {
+        "durationMs": 39744,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 23583,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 23583,
+        "maxMs": 23583,
+        "meanMs": 23583,
+        "medianMs": 23583,
+        "stdDevMs": 0
+      },
+      "incrementalBuild": {
+        "durationMs": 15657,
+        "success": true
+      }
+    },
+    {
+      "name": "Large .NET Project (100K files)",
+      "coldRun": {
+        "durationMs": 50336,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 46933,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 46933,
+        "maxMs": 46933,
+        "meanMs": 46933,
+        "medianMs": 46933,
+        "stdDevMs": 0
+      }
+    }
+  ]
+}
