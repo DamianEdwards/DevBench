@@ -1,0 +1,78 @@
+{
+  "submissionId": "3b6da22f-7544-4395-9284-7ba012346843",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-09-01T04:32:34.6095607Z",
+  "machine": {
+    "os": {
+      "platform": "Linux",
+      "version": "Unix 6.18.33.2",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) Ultra X9 388H",
+      "cores": 16
+    },
+    "memory": {
+      "capacityGB": 31.08948516845703
+    },
+    "storage": {
+      "type": "Fixed",
+      "fileSystem": "ext4",
+      "manufacturer": "Virtual",
+      "model": "Virtual",
+      "busType": "DISK",
+      "isDevDrive": false,
+      "freeSpaceGB": 902.6793518066406
+    },
+    "toolchains": [
+      {
+        "name": "Go",
+        "versions": [
+          "1.27.0"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "Distribution": "Ubuntu 26.04.1 LTS",
+      "KernelVersion": "6.18.33.2-microsoft-standard-WSL2"
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "TypeScript Compiler",
+      "coldRun": {
+        "durationMs": 61452,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 59660,
+          "success": true
+        },
+        {
+          "durationMs": 57797,
+          "success": true
+        },
+        {
+          "durationMs": 57366,
+          "success": true
+        },
+        {
+          "durationMs": 57972,
+          "success": true
+        },
+        {
+          "durationMs": 57486,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 57366,
+        "maxMs": 59660,
+        "meanMs": 58056.2,
+        "medianMs": 57797,
+        "stdDevMs": 830.4158958016158
+      }
+    }
+  ]
+}

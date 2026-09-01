@@ -1,0 +1,82 @@
+{
+  "submissionId": "9f8f5823-9c92-4316-9321-f38ad54a8da4",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-09-01T15:11:03.4819867Z",
+  "machine": {
+    "os": {
+      "platform": "Windows",
+      "version": "Microsoft Windows NT 10.0.26200.0",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "Intel(R) Core(TM) Ultra X9 388H",
+      "cores": 16
+    },
+    "memory": {
+      "capacityGB": 63.48488998413086,
+      "speedMHz": 8533,
+      "manufacturer": "Micron Technology",
+      "partNumber": "MTD32C20326N8FN023F1 YF",
+      "dimmCount": 1,
+      "formFactor": "0"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "ReFS",
+      "manufacturer": "Samsung",
+      "model": "Samsung SSD 990 EVO Plus 2TB",
+      "busType": "NVMe",
+      "isDevDrive": true,
+      "freeSpaceGB": 659.1403961181641
+    },
+    "toolchains": [
+      {
+        "name": "Go",
+        "versions": [
+          "1.27.0"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "WindowsBuild": 26200
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "TypeScript Compiler",
+      "coldRun": {
+        "durationMs": 57383,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 58861,
+          "success": true
+        },
+        {
+          "durationMs": 57895,
+          "success": true
+        },
+        {
+          "durationMs": 58832,
+          "success": true
+        },
+        {
+          "durationMs": 59364,
+          "success": true
+        },
+        {
+          "durationMs": 58962,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 57895,
+        "maxMs": 59364,
+        "meanMs": 58782.8,
+        "medianMs": 58861,
+        "stdDevMs": 483.03846637716134
+      }
+    }
+  ]
+}
