@@ -1,0 +1,53 @@
+{
+  "name": "TypeScript Compiler",
+  "description": "Build the TypeScript 7 native compiler from source using Go",
+  "type": "external-repo",
+  "repoUrl": "https://github.com/microsoft/TypeScript",
+  "repoRef": "v7.0.2",
+  "workingDirectory": "./tsc",
+  "tags": ["typescript", "go", "compiler"],
+  "toolchains": [
+    { "stack": "go" }
+  ],
+  "prerequisites": [
+    { "command": "go version", "minVersion": "1.26" }
+  ],
+  "environmentVariables": {
+    "CGO_ENABLED": "0",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "restore": {
+    "command": {
+      "windows": "set \"GOPROXY=https://proxy.golang.org,direct\" && set \"GOSUMDB=sum.golang.org\" && go mod download",
+      "": "GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org go mod download"
+    },
+    "timeout": 300
+  },
+  "clearCache": {
+    "command": {
+      "windows": "if exist tsgo.exe del /q tsgo.exe",
+      "": "rm -f tsgo"
+    },
+    "additionalPaths": [".devbench-go-build-cache"]
+  },
+  "build": {
+    "clean": {
+      "command": {
+        "windows": "if exist .devbench-go-build-cache rmdir /s /q .devbench-go-build-cache & if exist tsgo.exe del /q tsgo.exe",
+        "": "rm -rf .devbench-go-build-cache && rm -f tsgo"
+      },
+      "timeout": 120
+    },
+    "full": {
+      "command": {
+        "windows": "set \"GOCACHE=%CD%\\.devbench-go-build-cache\" && go build -tags=noembed ./cmd/tsgo",
+        "": "GOCACHE=\"$PWD/.devbench-go-build-cache\" go build -tags=noembed ./cmd/tsgo"
+      },
+      "timeout": 300
+    }
+  },
+  "warmupIterations": 2,
+  "measuredIterations": 5
+}
