@@ -1,0 +1,79 @@
+{
+  "submissionId": "d0475034-179d-4c07-bc83-afacd0c601ce",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-09-02T16:32:49.1663460Z",
+  "machine": {
+    "os": {
+      "platform": "macOS",
+      "version": "Unix 26.6.2",
+      "architecture": "Arm64"
+    },
+    "cpu": {
+      "model": "Apple M5 Max",
+      "cores": 18
+    },
+    "memory": {
+      "capacityGB": 64,
+      "formFactor": "LPDDR5"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "APFS",
+      "manufacturer": "APPLE",
+      "model": "APPLE SSD AP2048Z",
+      "busType": "Apple",
+      "isDevDrive": false,
+      "freeSpaceGB": 1756.3223495483398
+    },
+    "toolchains": [
+      {
+        "name": "Go",
+        "versions": [
+          "1.26.4"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "IsAppleSilicon": true,
+      "ChipModel": "Apple M5 Max"
+    }
+  },
+  "benchmarks": [
+    {
+      "name": "TypeScript Compiler",
+      "coldRun": {
+        "durationMs": 35986,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 31438,
+          "success": true
+        },
+        {
+          "durationMs": 30875,
+          "success": true
+        },
+        {
+          "durationMs": 31302,
+          "success": true
+        },
+        {
+          "durationMs": 31225,
+          "success": true
+        },
+        {
+          "durationMs": 31624,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 30875,
+        "maxMs": 31624,
+        "meanMs": 31292.8,
+        "medianMs": 31302,
+        "stdDevMs": 249.00393571186783
+      }
+    }
+  ]
+}
