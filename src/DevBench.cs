@@ -1,11 +1,14 @@
 #!/usr/bin/env dotnet
 #:package Spectre.Console@0.50.0
+#:property AllowUnsafeBlocks=true
 
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Win32.SafeHandles;
 using Spectre.Console;
 
 // ============================================================================
@@ -751,6 +754,72 @@ static void DisplaySummary(List<BenchmarkResult> results)
 // System Information Collection
 // ============================================================================
 
+static void ReportSystemInfoWarning(string component, string message)
+{
+    Console.Error.WriteLine($"Warning: could not collect {component}: {message}");
+}
+
+static JsonDocument? RunPowerShellQuery(string script, string component, TimeSpan timeout)
+{
+    var psi = new ProcessStartInfo
+    {
+        FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "WindowsPowerShell", "v1.0", "powershell.exe"),
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+    };
+    psi.ArgumentList.Add("-NoProfile");
+    psi.ArgumentList.Add("-NonInteractive");
+    psi.ArgumentList.Add("-OutputFormat");
+    psi.ArgumentList.Add("Text");
+    psi.ArgumentList.Add("-EncodedCommand");
+    psi.ArgumentList.Add(Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(
+        "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';\n" + script)));
+
+    try
+    {
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("PowerShell did not start.");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        using var cts = new CancellationTokenSource(timeout);
+
+        try
+        {
+            process.WaitForExitAsync(cts.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit();
+            ReportSystemInfoWarning(component, $"PowerShell timed out after {timeout.TotalSeconds} seconds.");
+            return null;
+        }
+
+        var output = outputTask.GetAwaiter().GetResult();
+        var error = errorTask.GetAwaiter().GetResult();
+        if (process.ExitCode != 0)
+        {
+            ReportSystemInfoWarning(component, $"PowerShell exited with code {process.ExitCode}. {error.Trim()}");
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            Console.Error.WriteLine($"Warning: PowerShell reported diagnostics while collecting {component}: {error.Trim()}");
+        }
+
+        return JsonDocument.Parse(output);
+    }
+    catch (Exception ex) when (ex is Win32Exception or IOException or InvalidOperationException or JsonException)
+    {
+        ReportSystemInfoWarning(component, ex.Message);
+        return null;
+    }
+}
+
 static SystemInfo CollectSystemInfo()
 {
     var info = new SystemInfo
@@ -788,9 +857,21 @@ static CpuInfo GetCpuInfo()
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        info.Model = RunCommandSync("powershell", 
-            "-Command \"(Get-CimInstance Win32_Processor).Name\"", 
-            TimeSpan.FromSeconds(10), false)?.Trim();
+        using var doc = RunPowerShellQuery(
+            "((Get-CimInstance Win32_Processor | Select-Object -ExpandProperty Name) -join ', ') | ConvertTo-Json -Compress",
+            "CPU information", TimeSpan.FromSeconds(10));
+        if (doc != null)
+        {
+            if (doc.RootElement.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrWhiteSpace(doc.RootElement.GetString()))
+            {
+                info.Model = doc.RootElement.GetString()!.Trim();
+            }
+            else
+            {
+                ReportSystemInfoWarning("CPU information", "PowerShell did not return a CPU model.");
+            }
+        }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
     {
@@ -813,30 +894,43 @@ static MemoryInfo GetMemoryInfo()
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        // Get total capacity
-        var output = RunCommandSync("powershell", 
-            "-Command \"(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory\"",
-            TimeSpan.FromSeconds(10), false);
-        if (long.TryParse(output?.Trim(), out var bytes))
-        {
-            info.CapacityGB = bytes / (1024.0 * 1024 * 1024);
-        }
-        
-        // Get detailed memory info from Win32_PhysicalMemory
-        var memDetailsOutput = RunCommandSync("powershell",
-            "-Command \"Get-CimInstance Win32_PhysicalMemory | ConvertTo-Json\"",
-            TimeSpan.FromSeconds(10), false);
-        if (!string.IsNullOrWhiteSpace(memDetailsOutput))
+        using var doc = RunPowerShellQuery(
+            "Get-CimInstance Win32_PhysicalMemory | Select-Object Capacity, Speed, Manufacturer, PartNumber, FormFactor | ConvertTo-Json",
+            "memory information", TimeSpan.FromSeconds(10));
+        if (doc != null)
         {
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(memDetailsOutput);
                 var root = doc.RootElement;
+                if (root.ValueKind is not (JsonValueKind.Array or JsonValueKind.Object))
+                {
+                    throw new JsonException("PowerShell did not return physical memory modules.");
+                }
                 
                 // Could be array or single object
                 var memories = root.ValueKind == System.Text.Json.JsonValueKind.Array 
                     ? root.EnumerateArray().ToList() 
                     : new List<System.Text.Json.JsonElement> { root };
+
+                // DIMM capacities report installed RAM, including hardware-reserved memory.
+                ulong totalBytes = 0;
+                foreach (var memory in memories)
+                {
+                    if (memory.ValueKind != JsonValueKind.Object ||
+                        !memory.TryGetProperty("Capacity", out var capacity) ||
+                        capacity.ValueKind != JsonValueKind.Number ||
+                        !capacity.TryGetUInt64(out var bytes) || bytes == 0)
+                    {
+                        throw new JsonException("A physical memory module has no valid capacity.");
+                    }
+                    totalBytes = checked(totalBytes + bytes);
+                }
+
+                if (totalBytes == 0)
+                {
+                    throw new JsonException("No installed physical memory was reported.");
+                }
+                info.CapacityGB = totalBytes / (1024.0 * 1024 * 1024);
                 
                 info.DimmCount = memories.Count;
                 
@@ -879,7 +973,10 @@ static MemoryInfo GetMemoryInfo()
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or OverflowException)
+            {
+                ReportSystemInfoWarning("memory information", ex.Message);
+            }
         }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -966,11 +1063,22 @@ static StorageInfo GetStorageInfo()
         info.Type = drive.DriveType.ToString();
         info.FileSystem = drive.DriveFormat;
     }
-    catch { }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    {
+        ReportSystemInfoWarning("drive information", ex.Message);
+    }
     
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        // Get detailed disk info for the drive containing cwd using encoded command
+        try
+        {
+            info.IsDevDrive = WindowsNative.IsDevDrive(cwd);
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException)
+        {
+            ReportSystemInfoWarning("Dev Drive status", ex.Message);
+        }
+
         var escapedCwd = cwd.Replace("'", "''");
         var script = $@"
 $volume = Get-Volume -FilePath '{escapedCwd}'
@@ -984,15 +1092,11 @@ $disk = Get-PhysicalDisk | Where-Object {{ $_.DeviceId -eq $partition.DiskNumber
     FileSystemType = $volume.FileSystemType
 }} | ConvertTo-Json -Compress
 ";
-        var bytes = System.Text.Encoding.Unicode.GetBytes(script);
-        var encodedCommand = Convert.ToBase64String(bytes);
-        
-        var output = RunCommandSync("powershell", $"-EncodedCommand {encodedCommand}", TimeSpan.FromSeconds(15), false);
-        if (!string.IsNullOrWhiteSpace(output))
+        using var doc = RunPowerShellQuery(script, "storage information", TimeSpan.FromSeconds(15));
+        if (doc != null)
         {
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(output);
                 var root = doc.RootElement;
                 
                 if (root.TryGetProperty("MediaType", out var mtProp) && mtProp.ValueKind == System.Text.Json.JsonValueKind.String)
@@ -1037,11 +1141,13 @@ $disk = Get-PhysicalDisk | Where-Object {{ $_.DeviceId -eq $partition.DiskNumber
                     if (!string.IsNullOrWhiteSpace(fs))
                     {
                         info.FileSystem = fs;
-                        info.IsDevDrive = fs.Equals("ReFS", StringComparison.OrdinalIgnoreCase);
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+            {
+                ReportSystemInfoWarning("storage information", ex.Message);
+            }
         }
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -1300,6 +1406,92 @@ static Dictionary<string, object> GetPlatformSpecificInfo()
     }
     
     return info;
+}
+
+// ============================================================================
+// Windows Native System Information
+// ============================================================================
+
+static partial class WindowsNative
+{
+    public static unsafe bool IsDevDrive(string path)
+    {
+        const uint DevVolume = 0x00002000;
+        const uint QueryPersistentVolumeState = 0x0009023C;
+        const uint FileReadAttributes = 0x00000080;
+        const uint FileFlagBackupSemantics = 0x02000000;
+
+        var buffer = new char[32768];
+        string volumePath;
+        fixed (char* volume = buffer)
+        {
+            if (!GetVolumePathName(path, volume, (uint)buffer.Length))
+            {
+                throw new Win32Exception(Marshal.GetLastPInvokeError());
+            }
+            volumePath = new string(volume);
+        }
+
+        if (GetDriveType(volumePath) != (uint)DriveType.Fixed)
+        {
+            return false;
+        }
+
+        // A directory handle with read-attributes access works without elevation.
+        using var handle = CreateFile(volumePath, FileReadAttributes,
+            FileShare.ReadWrite | FileShare.Delete, IntPtr.Zero, FileMode.Open,
+            FileFlagBackupSemantics, IntPtr.Zero);
+        if (handle.IsInvalid)
+        {
+            throw new Win32Exception(Marshal.GetLastPInvokeError());
+        }
+
+        var query = new PersistentVolumeInfo { VolumeFlags = 0, FlagMask = DevVolume, Version = 1, Reserved = 0 };
+        if (!DeviceIoControl(handle, QueryPersistentVolumeState, in query, (uint)sizeof(PersistentVolumeInfo),
+            out var state, (uint)sizeof(PersistentVolumeInfo), out var bytesReturned, IntPtr.Zero))
+        {
+            var error = Marshal.GetLastPInvokeError();
+            // Older Windows versions and unsupported file systems cannot be Dev Drives.
+            if (error is 1 or 50 or 87) // ERROR_INVALID_FUNCTION, ERROR_NOT_SUPPORTED, ERROR_INVALID_PARAMETER
+            {
+                return false;
+            }
+            throw new Win32Exception(error);
+        }
+
+        if (bytesReturned < sizeof(PersistentVolumeInfo))
+        {
+            throw new InvalidDataException("The Dev Drive query returned incomplete volume information.");
+        }
+
+        return (state.VolumeFlags & DevVolume) != 0;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PersistentVolumeInfo
+    {
+        public uint VolumeFlags;
+        public uint FlagMask;
+        public uint Version;
+        public uint Reserved;
+    }
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetVolumePathNameW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static unsafe partial bool GetVolumePathName(string fileName, char* volumePath, uint bufferLength);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "GetDriveTypeW", StringMarshalling = StringMarshalling.Utf16)]
+    private static partial uint GetDriveType(string rootPath);
+
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static partial SafeFileHandle CreateFile(string fileName, uint desiredAccess, FileShare shareMode,
+        IntPtr securityAttributes, FileMode creationDisposition, uint flagsAndAttributes, IntPtr templateFile);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool DeviceIoControl(SafeFileHandle device, uint controlCode,
+        in PersistentVolumeInfo input, uint inputSize, out PersistentVolumeInfo output, uint outputSize,
+        out uint bytesReturned, IntPtr overlapped);
 }
 
 // ============================================================================

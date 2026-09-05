@@ -309,9 +309,9 @@ When benchmarks run, results are saved in this format:
     "os": { "platform": "Windows", "version": "...", "architecture": "X64" },
     "cpu": { "model": "...", "cores": 8 },
     "memory": { "capacityGB": 32 },
-    "storage": { "type": "SSD", "fileSystem": "ReFS", "freeSpaceGB": 100 },
-    "dotNetSdks": ["10.0.100"],
-    "platformSpecific": { "isDevDrive": true }
+    "storage": { "type": "SSD", "fileSystem": "ReFS", "isDevDrive": true, "freeSpaceGB": 100 },
+    "toolchains": [{ "name": ".NET SDK", "versions": ["10.0.100"] }],
+    "platformSpecific": { "WindowsBuild": 26200 }
   },
   "benchmarks": [
     {
@@ -333,3 +333,20 @@ When benchmarks run, results are saved in this format:
   ]
 }
 ```
+
+On Windows, `memory.capacityGB` is the sum of installed physical memory module
+capacities in GiB (bytes divided by 1024 cubed), including hardware-reserved RAM,
+not just the memory available to the OS.
+
+`storage.isDevDrive` indicates whether the volume containing the working directory
+has Windows' `PERSISTENT_VOLUME_STATE_DEV_VOLUME` flag. ReFS alone does not imply a
+Dev Drive. This query does not require administrator privileges and is independent
+of whether the Dev Drive is trusted.
+
+Windows metadata queries run PowerShell without profiles or interactive prompts.
+Collection and parsing failures emit warnings to standard error rather than
+silently hiding missing information.
+
+To check a built harness against Windows' CPU and installed RAM values, run
+`tests\Test-WindowsSystemInfo.ps1 -HarnessPath <path-to-DevBench.exe> -ExpectedDevDrive $true`
+from a known Dev Drive in PowerShell 7. Use `$false` from a regular volume.
