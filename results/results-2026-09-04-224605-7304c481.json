@@ -1,0 +1,153 @@
+{
+  "submissionId": "7304c481-2f3d-4130-8ca5-deee7efc889b",
+  "submitter": "Damian Edwards",
+  "timestamp": "2026-09-04T22:46:05.4008727Z",
+  "machine": {
+    "os": {
+      "platform": "Windows",
+      "version": "Microsoft Windows NT 10.0.26200.0",
+      "architecture": "X64"
+    },
+    "cpu": {
+      "model": "AMD Ryzen 9 9950X3D 16-Core Processor",
+      "cores": 32
+    },
+    "memory": {
+      "capacityGB": 128,
+      "speedMHz": 6000,
+      "partNumber": "F5-6000J3444F64G",
+      "dimmCount": 2,
+      "formFactor": "DIMM"
+    },
+    "storage": {
+      "type": "SSD",
+      "fileSystem": "ReFS",
+      "manufacturer": "HPT",
+      "model": "DISK 0_0",
+      "busType": "RAID",
+      "isDevDrive": true,
+      "freeSpaceGB": 3586.6270294189453
+    },
+    "toolchains": [
+      {
+        "name": ".NET SDK",
+        "versions": [
+          "9.0.317",
+          "10.0.400",
+          "11.0.100-preview.7.26381.103"
+        ]
+      },
+      {
+        "name": "Go",
+        "versions": [
+          "1.26.4"
+        ]
+      }
+    ],
+    "platformSpecific": {
+      "WindowsBuild": 26200
+    }
+  },
+  "benchmarks": [
+    {
+      "name": ".NET Hello World",
+      "coldRun": {
+        "durationMs": 1662,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 362,
+          "success": true
+        },
+        {
+          "durationMs": 388,
+          "success": true
+        },
+        {
+          "durationMs": 350,
+          "success": true
+        },
+        {
+          "durationMs": 343,
+          "success": true
+        },
+        {
+          "durationMs": 359,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 343,
+        "maxMs": 388,
+        "meanMs": 360.4,
+        "medianMs": 359,
+        "stdDevMs": 15.344054223053305
+      },
+      "incrementalBuild": {
+        "durationMs": 344,
+        "success": true
+      }
+    },
+    {
+      "name": "TypeScript Compiler",
+      "coldRun": {
+        "durationMs": 57121,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 46791,
+          "success": true
+        },
+        {
+          "durationMs": 49383,
+          "success": true
+        },
+        {
+          "durationMs": 46019,
+          "success": true
+        },
+        {
+          "durationMs": 45716,
+          "success": true
+        },
+        {
+          "durationMs": 45691,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 45691,
+        "maxMs": 49383,
+        "meanMs": 46720,
+        "medianMs": 46019,
+        "stdDevMs": 1389.5947610724502
+      }
+    },
+    {
+      "name": "OrchardCore",
+      "coldRun": {
+        "durationMs": 34774,
+        "success": true
+      },
+      "warmRuns": [
+        {
+          "durationMs": 29761,
+          "success": true
+        }
+      ],
+      "warmRunStats": {
+        "minMs": 29761,
+        "maxMs": 29761,
+        "meanMs": 29761,
+        "medianMs": 29761,
+        "stdDevMs": 0
+      },
+      "incrementalBuild": {
+        "durationMs": 6965,
+        "success": true
+      }
+    }
+  ]
+}
