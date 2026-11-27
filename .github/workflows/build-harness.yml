@@ -20,7 +20,7 @@ on:
           - major
 
 env:
-  DOTNET_VERSION: '10.0.x'
+  DOTNET_VERSION: '11.0.x'
   HARNESS_NAME: DevBench
 
 jobs:
@@ -119,6 +119,7 @@ jobs:
           dotnet publish src/DevBench.cs `
             --runtime ${{ matrix.rid }} `
             --output ./artifacts/${{ matrix.rid }} `
+            -p:TargetFramework=net10.0 `
             -p:Version=${{ needs.calculate-version.outputs.version }} `
             -p:InformationalVersion=${{ needs.calculate-version.outputs.version }}+${{ github.sha }}
         shell: pwsh
